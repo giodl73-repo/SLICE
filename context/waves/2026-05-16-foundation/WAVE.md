@@ -23,6 +23,7 @@ new predicate language.
 | 05 | Consumer migration plan | done | Chose CROP frontmatter-query parity as the first real adoption surface and recorded downstream boundaries. |
 | 06 | Diagnostic reports | done | Added machine-readable diagnostics with byte offsets and catalog/type context. |
 | 07 | Requirement reports | done | Added deduplicated typed field requirements for adapter materialization. |
+| 08 | CROP parity mock | done | Proved CROP frontmatter-query behavior in the mock client without moving CROP policy into core. |
 
 ## Success criteria
 

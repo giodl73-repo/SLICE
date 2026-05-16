@@ -227,5 +227,10 @@ deduplicated typed field paths that an adapter must materialize before
 evaluation. This is not a fetch plan: consumers still own how those fields are
 loaded, cached, folded, or rendered.
 
+Pulse 08 uses those reports in the mock client to model CROP frontmatter-query
+parity. The adapter derives a catalog from query paths, materializes missing
+fields as `null` for CROP-compatible `ne`, and converts array-like tag strings
+before evaluation. The behavior belongs to the adapter, not `slice-core`.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.

@@ -48,6 +48,9 @@ data requirements, ranking, rendering, and domain policy. See
    - Current local validation: `slice-mock-client` exercises Pebble-shaped,
      CROP-like, FLETCH-like, and ICELINES-like rows while keeping FLETCH folding
      in the client layer.
+   - CROP migration proof: `slice-mock-client` now includes a frontmatter-query
+     parity adapter for dynamic keys, array-like tag strings, and missing-field
+     `ne` behavior.
 3. **Typed catalogs** - add field catalogs and numeric comparisons so adapters
    can validate paths and operator/type compatibility before evaluation.
 4. **Explain reports** - emit machine-readable field/operator/literal summaries

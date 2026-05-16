@@ -47,6 +47,11 @@ FLETCH-like active partitions, and ICELINES-like player rows. For FLETCH, SLICE
 selects rows and the mock client performs the downstream fold into quiver
 candidates, preserving the layer boundary.
 
+The mock client also includes a CROP frontmatter-query parity adapter. It derives
+a field catalog from the query, materializes array-like frontmatter strings for
+`has`, and preserves CROP's current behavior that a missing field satisfies
+`ne`.
+
 ```bash
 cargo run -p slice-mock-client
 ```

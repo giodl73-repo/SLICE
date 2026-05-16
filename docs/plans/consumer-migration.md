@@ -18,6 +18,9 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      prefix caches, output formats, and compatibility flags.
    - Gate: CROP's existing frontmatter-query fixtures pass through a SLICE
      adapter with no behavior drift for supported clauses.
+   - Local proof: `slice-mock-client` includes a CROP frontmatter parity adapter
+     for top-level fields, array-like tag strings, and missing-field `ne`
+     semantics.
 
 2. **PEBBLE metadata selector examples**
    - Target: document/section metadata filters used by context-pack consumers.

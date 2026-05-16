@@ -2,14 +2,15 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
-use serde_json::{json, Value};
-use slice_core::{ExplainReport, FieldCatalog, RequirementReport, ValueType};
+use serde_json::{json, Map, Value};
+use slice_core::{ExplainReport, FieldCatalog, Operator, RequirementReport, ValueType};
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct MockClientReport {
     pub schema: String,
     pub pebble: SelectionReport,
     pub crop: SelectionReport,
+    pub crop_frontmatter_parity: CropFrontmatterParityReport,
     pub fletch: FletchSelectionReport,
     pub icelines: SelectionReport,
     pub passed: bool,
@@ -34,6 +35,15 @@ pub struct FletchSelectionReport {
     pub quiver_candidates: Vec<QuiverCandidate>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct CropFrontmatterParityReport {
+    pub expression: String,
+    pub explain: ExplainReport,
+    pub requirements: RequirementReport,
+    pub input_count: usize,
+    pub selected_sources: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct QuiverCandidate {
     pub dataset_id: String,
@@ -54,6 +64,10 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         "id",
         crop_catalog(),
     )?;
+    let crop_frontmatter_parity = select_crop_frontmatter_sources(
+        "tags has 'computing' and status eq 'ready' and owner ne 'docs'",
+        crop_frontmatter_rows(),
+    )?;
     let fletch = select_fletch_partitions(
         "active eq true and dataset.id contains 'icelines'",
         fletch_partition_rows(),
@@ -68,6 +82,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
 
     let passed = pebble.selected_ids == ["pebble:guide"]
         && crop.selected_ids == ["crop:unit:frontmatter"]
+        && crop_frontmatter_parity.selected_sources == ["maxim/systems.md"]
         && fletch.selected_partition_ids == ["partition:icelines:leaders"]
         && fletch.quiver_candidates
             == [QuiverCandidate {
@@ -81,6 +96,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         schema: "slice.mock-client.v1".to_string(),
         pebble,
         crop,
+        crop_frontmatter_parity,
         fletch,
         icelines,
         passed,
@@ -141,6 +157,83 @@ fn select_fletch_partitions(
     })
 }
 
+fn select_crop_frontmatter_sources(
+    expr: &str,
+    rows: Vec<CropFrontmatterRow>,
+) -> Result<CropFrontmatterParityReport> {
+    let catalog = crop_frontmatter_catalog(expr)?;
+    let selector = slice_core::compile(expr, &catalog)
+        .with_context(|| format!("failed to compile CROP frontmatter expression {expr:?}"))?;
+    let input_count = rows.len();
+    let required_paths = selector
+        .requirements()
+        .fields
+        .iter()
+        .map(|field| field.path.as_str())
+        .collect::<Vec<_>>();
+    let selected_sources = rows
+        .iter()
+        .filter_map(|row| {
+            let value = materialize_crop_frontmatter_row(row, &required_paths);
+            selector.matches(&value).then(|| row.source.clone())
+        })
+        .collect::<Vec<_>>();
+
+    Ok(CropFrontmatterParityReport {
+        expression: expr.to_string(),
+        explain: selector.explain().clone(),
+        requirements: selector.requirements().clone(),
+        input_count,
+        selected_sources,
+    })
+}
+
+fn crop_frontmatter_catalog(expr: &str) -> Result<FieldCatalog> {
+    let parsed = slice_core::parse(expr)
+        .with_context(|| format!("failed to parse CROP frontmatter expression {expr:?}"))?;
+    let mut catalog = FieldCatalog::new();
+    for clause in parsed.clauses() {
+        let path = clause.path().join(".");
+        let value_type = match clause.op() {
+            Operator::Has => ValueType::Any,
+            Operator::Eq | Operator::Ne | Operator::Contains => ValueType::String,
+            Operator::Gt | Operator::Ge | Operator::Lt | Operator::Le => ValueType::Any,
+        };
+        catalog.insert(path, value_type);
+    }
+    Ok(catalog)
+}
+
+fn materialize_crop_frontmatter_row(row: &CropFrontmatterRow, required_paths: &[&str]) -> Value {
+    let mut object = Map::new();
+    for path in required_paths {
+        let value = row
+            .fields
+            .get(*path)
+            .map(|field| crop_frontmatter_value(field))
+            .unwrap_or(Value::Null);
+        object.insert((*path).to_string(), value);
+    }
+    Value::Object(object)
+}
+
+fn crop_frontmatter_value(value: &str) -> Value {
+    let trimmed = value.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        let values = inner
+            .split(',')
+            .map(|part| part.trim().trim_matches('"').trim_matches('\'').trim())
+            .filter(|part| !part.is_empty())
+            .map(|part| Value::String(part.to_string()))
+            .collect::<Vec<_>>();
+        return Value::Array(values);
+    }
+    Value::String(trimmed.to_string())
+}
+
 fn fold_fletch_rows_into_quiver_candidates(rows: &[Value]) -> Result<Vec<QuiverCandidate>> {
     let mut by_dataset = BTreeMap::<String, QuiverCandidate>::new();
     for row in rows {
@@ -158,6 +251,12 @@ fn fold_fletch_rows_into_quiver_candidates(rows: &[Value]) -> Result<Vec<QuiverC
         candidate.cache_keys.push(cache_key);
     }
     Ok(by_dataset.into_values().collect())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CropFrontmatterRow {
+    source: String,
+    fields: BTreeMap<String, String>,
 }
 
 fn split_path(path: &str) -> Vec<String> {
@@ -254,6 +353,34 @@ fn crop_rows() -> Vec<Value> {
     ]
 }
 
+fn crop_frontmatter_rows() -> Vec<CropFrontmatterRow> {
+    vec![
+        crop_frontmatter_row(
+            "maxim/systems.md",
+            &[
+                ("tags", "[computing, systems]"),
+                ("status", "ready"),
+                ("version", "1.0"),
+            ],
+        ),
+        crop_frontmatter_row(
+            "maxim/draft.md",
+            &[("tags", "[computing]"), ("status", "draft")],
+        ),
+        crop_frontmatter_row("maxim/math.md", &[("tags", "[math]"), ("status", "ready")]),
+    ]
+}
+
+fn crop_frontmatter_row(source: &str, fields: &[(&str, &str)]) -> CropFrontmatterRow {
+    CropFrontmatterRow {
+        source: source.to_string(),
+        fields: fields
+            .iter()
+            .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
+            .collect(),
+    }
+}
+
 fn fletch_partition_rows() -> Vec<Value> {
     vec![
         json!({
@@ -337,6 +464,14 @@ mod tests {
         assert_eq!(report.pebble.requirements.field_count, 2);
         assert_eq!(report.crop.selected_ids, ["crop:unit:frontmatter"]);
         assert_eq!(
+            report.crop_frontmatter_parity.selected_sources,
+            ["maxim/systems.md"]
+        );
+        assert_eq!(
+            report.crop_frontmatter_parity.requirements.fields[1].path,
+            "status"
+        );
+        assert_eq!(
             report.fletch.selected_partition_ids,
             ["partition:icelines:leaders"]
         );
@@ -356,5 +491,19 @@ mod tests {
             report.fletch.quiver_candidates[0].cache_keys,
             ["cache:icelines:leaders:2026"]
         );
+    }
+
+    #[test]
+    fn crop_frontmatter_parity_preserves_missing_ne() {
+        let report = select_crop_frontmatter_sources(
+            "owner ne 'docs'",
+            vec![crop_frontmatter_row(
+                "docs/without-owner.md",
+                &[("status", "ready")],
+            )],
+        )
+        .unwrap();
+
+        assert_eq!(report.selected_sources, ["docs/without-owner.md"]);
     }
 }
