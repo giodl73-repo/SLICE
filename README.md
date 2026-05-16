@@ -32,6 +32,8 @@ The first contract is intentionally small:
 - optional typed field catalogs before evaluation, including CLI `--catalog`
   JSON files;
 - machine-readable parse and typed explain reports with expression trees;
+- SQLite fold plans with per-source predicates, parameters, requirements,
+  residual filters, and diagnostics;
 - CLI adapters for JSON arrays, JSONL rows, and Markdown tables;
 - CLI projection with `--fields` for emitting only selected row fields;
 - CLI result shaping with `--sort-by`, `--desc`, `--offset`, `--limit`, and
@@ -84,12 +86,21 @@ diagnostics without scanning input rows:
 slice explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
 ```
 
+Use `slice plan` to inspect which predicates can be pushed into SQLite before a
+consumer executes a query. Multi-source `and` branches fold independently so a
+consumer can attach each predicate to its own side of a join:
+
+```bash
+slice plan --backend sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
+```
+
 ## Formalism
 
 SLICE is a typed selector pipeline: parse source syntax, normalize it, resolve
 paths through a consumer-owned field catalog, type-check predicates, plan any
-consumer-owned requirements, evaluate over adapter-provided values, and explain
-the result. The detailed model is in
+consumer-owned requirements, fold supported predicates into backend plans,
+evaluate residuals over adapter-provided values, and explain the result. The
+detailed model is in
 [`docs/specs/formalism.md`](docs/specs/formalism.md).
 
 The first adoption path is documented in
@@ -107,6 +118,11 @@ The mock client also includes a CROP frontmatter-query parity adapter. It derive
 a field catalog from the query, materializes array-like frontmatter strings for
 `has`, and preserves CROP's current behavior that a missing field satisfies
 `ne`.
+
+For ICELINES-style storage, the mock client creates an in-memory SQLite database,
+folds player predicates to the `players` source, folds stat predicates to the
+`stats` source, runs the consumer-owned join, and then applies the residual
+SLICE filter locally.
 
 ```bash
 cargo run -p slice-mock-client
@@ -128,6 +144,13 @@ let selector = slice_core::compile("metadata.status eq 'ready' and stats.ppg ge 
 let explain = selector.explain();
 let requirements = selector.requirements();
 let _parse_explain = slice_core::parse("metadata.status eq 'ready'")?.explain_parse();
+
+let mut fold_catalog = slice_core::FoldCatalog::new();
+fold_catalog
+    .insert_sqlite("player.position", slice_core::ValueType::String, "players", "players.position")
+    .insert_sqlite("stats.ppg", slice_core::ValueType::Number, "stats", "stats.ppg");
+let fold_plan = slice_core::parse("player.position eq 'C' and stats.ppg ge 0.8")?
+    .plan_sqlite(&fold_catalog)?;
 ```
 
 `explain` is machine-readable, so downstream CLIs and agents can show which
@@ -143,6 +166,8 @@ kind, message, byte offset, and catalog/type details when available.
 - SLICE does not fetch data, build corpora, or cache artifacts.
 - SLICE does not own CROP graph cuts, PEBBLE schema design, FLETCH manifests, or
   product-specific query surfaces.
+- SLICE does not execute SQL or infer joins; consumers own schemas, joins,
+  execution, auth, and ranking.
 - SLICE is not a general programming language; it is a portable selector and
   expression kernel.
 
@@ -160,6 +185,7 @@ cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice
 cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
 cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --count
 cargo run -p slice-cli -- explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
+cargo run -p slice-cli -- plan --backend sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
 cargo run -p slice-mock-client
 ```
 

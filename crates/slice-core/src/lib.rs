@@ -116,6 +116,18 @@ pub struct FieldCatalog {
     fields: BTreeMap<String, FieldSpec>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FoldCatalog {
+    fields: BTreeMap<String, FoldFieldSpec>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FoldFieldSpec {
+    value_type: ValueType,
+    source: String,
+    column: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledExpr {
     expr: Expr,
@@ -183,6 +195,41 @@ pub struct RequirementReport {
 pub struct RequirementField {
     pub path: String,
     pub value_type: ValueType,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FoldPlan {
+    pub schema: String,
+    pub backend: String,
+    pub source_count: usize,
+    pub sources: Vec<FoldSourcePlan>,
+    pub requirements: RequirementReport,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub residual: Option<ParsedExplainNode>,
+    pub diagnostics: Vec<FoldDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FoldSourcePlan {
+    pub source: String,
+    pub predicate: SqlitePredicate,
+    pub folded_clause_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SqlitePredicate {
+    pub sql: String,
+    pub params: Vec<Literal>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FoldDiagnostic {
+    pub kind: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operator: Option<Operator>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -357,6 +404,56 @@ impl FieldCatalog {
     }
 }
 
+impl FoldCatalog {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert_sqlite(
+        &mut self,
+        path: impl Into<String>,
+        value_type: ValueType,
+        source: impl Into<String>,
+        column: impl Into<String>,
+    ) -> &mut Self {
+        self.fields.insert(
+            path.into(),
+            FoldFieldSpec {
+                value_type,
+                source: source.into(),
+                column: column.into(),
+            },
+        );
+        self
+    }
+
+    pub fn get(&self, path: &str) -> Option<&FoldFieldSpec> {
+        self.fields.get(path)
+    }
+
+    pub fn field_catalog(&self) -> FieldCatalog {
+        let mut catalog = FieldCatalog::new();
+        for (path, field) in &self.fields {
+            catalog.insert(path, field.value_type);
+        }
+        catalog
+    }
+}
+
+impl FoldFieldSpec {
+    pub fn value_type(&self) -> ValueType {
+        self.value_type
+    }
+
+    pub fn source(&self) -> &str {
+        &self.source
+    }
+
+    pub fn column(&self) -> &str {
+        &self.column
+    }
+}
+
 impl Expr {
     pub fn matches(&self, value: &Value) -> bool {
         self.root.matches(value)
@@ -416,6 +513,34 @@ impl Expr {
             schema: "slice.requirements.v1".to_string(),
             field_count: fields.len(),
             fields,
+        })
+    }
+
+    pub fn plan_sqlite(&self, catalog: &FoldCatalog) -> Result<FoldPlan, SliceError> {
+        let field_catalog = catalog.field_catalog();
+        self.validate(&field_catalog)?;
+        let requirements = self.requirements(&field_catalog)?;
+        let mut accumulator = FoldAccumulator::default();
+        fold_top_level_and(&self.root, catalog, &mut accumulator);
+        let residual = combine_residuals(accumulator.residuals).map(|node| node.explain_parse());
+        let sources = accumulator
+            .sources
+            .into_iter()
+            .map(|(source, source_fold)| FoldSourcePlan {
+                source,
+                predicate: combine_sqlite_predicates("and", source_fold.predicates),
+                folded_clause_count: source_fold.folded_clause_count,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(FoldPlan {
+            schema: "slice.fold.v1".to_string(),
+            backend: "sqlite".to_string(),
+            source_count: sources.len(),
+            sources,
+            requirements,
+            residual,
+            diagnostics: accumulator.diagnostics,
         })
     }
 }
@@ -501,6 +626,284 @@ fn parse_explain_children(kind: &str, children: &[ExprNode]) -> ParsedExplainNod
             .map(ExprNode::explain_parse)
             .collect::<Vec<_>>(),
     }
+}
+
+#[derive(Debug, Default)]
+struct FoldAccumulator {
+    sources: BTreeMap<String, SourceFold>,
+    residuals: Vec<ExprNode>,
+    diagnostics: Vec<FoldDiagnostic>,
+}
+
+#[derive(Debug, Default)]
+struct SourceFold {
+    predicates: Vec<SqlitePredicate>,
+    folded_clause_count: usize,
+}
+
+#[derive(Debug)]
+struct SingleFold {
+    source: String,
+    predicate: SqlitePredicate,
+    folded_clause_count: usize,
+}
+
+fn fold_top_level_and(node: &ExprNode, catalog: &FoldCatalog, accumulator: &mut FoldAccumulator) {
+    match node {
+        ExprNode::All(children) => {
+            for child in children {
+                fold_top_level_and(child, catalog, accumulator);
+            }
+        }
+        _ => match fold_single_source(node, catalog) {
+            Ok(fold) => {
+                let source = accumulator.sources.entry(fold.source).or_default();
+                source.predicates.push(fold.predicate);
+                source.folded_clause_count += fold.folded_clause_count;
+            }
+            Err(diagnostic) => {
+                accumulator.diagnostics.push(diagnostic);
+                accumulator.residuals.push(node.clone());
+            }
+        },
+    }
+}
+
+fn fold_single_source(
+    node: &ExprNode,
+    catalog: &FoldCatalog,
+) -> Result<SingleFold, FoldDiagnostic> {
+    match node {
+        ExprNode::Clause(clause) => sqlite_clause(clause, catalog),
+        ExprNode::All(children) => fold_boolean_children("and", children, catalog),
+        ExprNode::Any(children) => fold_boolean_children("or", children, catalog),
+        ExprNode::Not(child) => {
+            let child = fold_single_source(child, catalog)?;
+            Ok(SingleFold {
+                source: child.source,
+                predicate: SqlitePredicate {
+                    sql: format!("(NOT {})", child.predicate.sql),
+                    params: child.predicate.params,
+                },
+                folded_clause_count: child.folded_clause_count,
+            })
+        }
+    }
+}
+
+fn fold_boolean_children(
+    kind: &str,
+    children: &[ExprNode],
+    catalog: &FoldCatalog,
+) -> Result<SingleFold, FoldDiagnostic> {
+    let mut folded = Vec::<SingleFold>::new();
+    for child in children {
+        folded.push(fold_single_source(child, catalog)?);
+    }
+
+    let Some(first) = folded.first() else {
+        return Err(FoldDiagnostic {
+            kind: "empty_boolean".to_string(),
+            message: "empty boolean expression cannot be folded".to_string(),
+            path: None,
+            operator: None,
+        });
+    };
+    if folded.iter().any(|fold| fold.source != first.source) {
+        return Err(FoldDiagnostic {
+            kind: "cross_source_boolean".to_string(),
+            message: format!("{kind} expression spans multiple sources and remains residual"),
+            path: None,
+            operator: None,
+        });
+    }
+
+    let source = first.source.clone();
+    let folded_clause_count = folded
+        .iter()
+        .map(|fold| fold.folded_clause_count)
+        .sum::<usize>();
+    let predicates = folded
+        .into_iter()
+        .map(|fold| fold.predicate)
+        .collect::<Vec<_>>();
+    Ok(SingleFold {
+        source,
+        predicate: combine_sqlite_predicates(kind, predicates),
+        folded_clause_count,
+    })
+}
+
+fn sqlite_clause(clause: &Clause, catalog: &FoldCatalog) -> Result<SingleFold, FoldDiagnostic> {
+    let path = clause.path.join(".");
+    let Some(field) = catalog.get(&path) else {
+        return Err(FoldDiagnostic {
+            kind: "unknown_fold_field".to_string(),
+            message: format!("{path} is not present in the fold catalog"),
+            path: Some(path),
+            operator: Some(clause.op),
+        });
+    };
+    let column = quote_sqlite_identifier(field.column());
+    let predicate = match clause.op {
+        Operator::Eq if matches!(clause.literal, Literal::Null) => SqlitePredicate {
+            sql: format!("({column} IS NULL)"),
+            params: Vec::new(),
+        },
+        Operator::Ne if matches!(clause.literal, Literal::Null) => SqlitePredicate {
+            sql: format!("({column} IS NOT NULL)"),
+            params: Vec::new(),
+        },
+        Operator::Eq => binary_sqlite_predicate(&column, "=", &clause.literal),
+        Operator::Ne => binary_sqlite_predicate(&column, "<>", &clause.literal),
+        Operator::Gt => binary_sqlite_predicate(&column, ">", &clause.literal),
+        Operator::Ge => binary_sqlite_predicate(&column, ">=", &clause.literal),
+        Operator::Lt => binary_sqlite_predicate(&column, "<", &clause.literal),
+        Operator::Le => binary_sqlite_predicate(&column, "<=", &clause.literal),
+        Operator::IsNull => SqlitePredicate {
+            sql: format!("({column} IS NULL)"),
+            params: Vec::new(),
+        },
+        Operator::IsNotNull => SqlitePredicate {
+            sql: format!("({column} IS NOT NULL)"),
+            params: Vec::new(),
+        },
+        Operator::In | Operator::NotIn => {
+            sqlite_list_predicate(&column, clause.op, &clause.literal)
+                .ok_or_else(|| unsupported_fold(&path, clause.op, "list literal is required"))?
+        }
+        Operator::Between => sqlite_between_predicate(&column, &clause.literal)
+            .ok_or_else(|| unsupported_fold(&path, clause.op, "range literal is required"))?,
+        Operator::Contains | Operator::StartsWith | Operator::EndsWith => {
+            sqlite_like_predicate(&column, clause.op, &clause.literal).ok_or_else(|| {
+                unsupported_fold(
+                    &path,
+                    clause.op,
+                    "string literal is required for LIKE folding",
+                )
+            })?
+        }
+        Operator::Has | Operator::HasAny | Operator::HasAll => {
+            return Err(unsupported_fold(
+                &path,
+                clause.op,
+                "array/object containment stays as a residual local filter",
+            ));
+        }
+    };
+
+    Ok(SingleFold {
+        source: field.source().to_string(),
+        predicate,
+        folded_clause_count: 1,
+    })
+}
+
+fn binary_sqlite_predicate(column: &str, operator: &str, literal: &Literal) -> SqlitePredicate {
+    SqlitePredicate {
+        sql: format!("({column} {operator} ?)"),
+        params: vec![literal.clone()],
+    }
+}
+
+fn sqlite_list_predicate(
+    column: &str,
+    operator: Operator,
+    literal: &Literal,
+) -> Option<SqlitePredicate> {
+    let Literal::List(values) = literal else {
+        return None;
+    };
+    if values.is_empty() {
+        return None;
+    }
+    let placeholders = std::iter::repeat_n("?", values.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql_operator = match operator {
+        Operator::In => "IN",
+        Operator::NotIn => "NOT IN",
+        _ => return None,
+    };
+    Some(SqlitePredicate {
+        sql: format!("({column} {sql_operator} ({placeholders}))"),
+        params: values.clone(),
+    })
+}
+
+fn sqlite_between_predicate(column: &str, literal: &Literal) -> Option<SqlitePredicate> {
+    let Literal::Range { min, max } = literal else {
+        return None;
+    };
+    Some(SqlitePredicate {
+        sql: format!("({column} BETWEEN ? AND ?)"),
+        params: vec![(**min).clone(), (**max).clone()],
+    })
+}
+
+fn sqlite_like_predicate(
+    column: &str,
+    operator: Operator,
+    literal: &Literal,
+) -> Option<SqlitePredicate> {
+    let Literal::String(value) = literal else {
+        return None;
+    };
+    let pattern = match operator {
+        Operator::Contains => format!("%{value}%"),
+        Operator::StartsWith => format!("{value}%"),
+        Operator::EndsWith => format!("%{value}"),
+        _ => return None,
+    };
+    Some(SqlitePredicate {
+        sql: format!("({column} LIKE ?)"),
+        params: vec![Literal::String(pattern)],
+    })
+}
+
+fn combine_sqlite_predicates(kind: &str, predicates: Vec<SqlitePredicate>) -> SqlitePredicate {
+    let separator = match kind {
+        "or" => " OR ",
+        _ => " AND ",
+    };
+    let mut params = Vec::new();
+    let sql = predicates
+        .into_iter()
+        .map(|predicate| {
+            params.extend(predicate.params);
+            predicate.sql
+        })
+        .collect::<Vec<_>>()
+        .join(separator);
+    SqlitePredicate {
+        sql: format!("({sql})"),
+        params,
+    }
+}
+
+fn unsupported_fold(path: &str, operator: Operator, reason: &str) -> FoldDiagnostic {
+    FoldDiagnostic {
+        kind: "unsupported_sqlite_fold".to_string(),
+        message: reason.to_string(),
+        path: Some(path.to_string()),
+        operator: Some(operator),
+    }
+}
+
+fn combine_residuals(residuals: Vec<ExprNode>) -> Option<ExprNode> {
+    match residuals.len() {
+        0 => None,
+        1 => residuals.into_iter().next(),
+        _ => Some(ExprNode::All(residuals)),
+    }
+}
+
+fn quote_sqlite_identifier(identifier: &str) -> String {
+    identifier
+        .split('.')
+        .map(|part| format!("\"{}\"", part.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(".")
 }
 
 impl CompiledExpr {
@@ -1423,6 +1826,63 @@ mod tests {
                 .as_ref()
                 .map(|field| field.value_type),
             Some(ValueType::String)
+        );
+    }
+
+    #[test]
+    fn sqlite_fold_plan_partitions_top_level_and_across_sources() {
+        let mut catalog = FoldCatalog::new();
+        catalog
+            .insert_sqlite(
+                "player.position",
+                ValueType::String,
+                "players",
+                "players.position",
+            )
+            .insert_sqlite("stats.ppg", ValueType::Number, "stats", "stats.ppg")
+            .insert_sqlite("tags", ValueType::Array, "stats", "stats.tags");
+        let expr =
+            parse("player.position eq 'C' and stats.ppg ge 0.8 and tags has 'playoffs'").unwrap();
+        let plan = expr.plan_sqlite(&catalog).unwrap();
+
+        assert_eq!(plan.backend, "sqlite");
+        assert_eq!(plan.source_count, 2);
+        assert_eq!(plan.sources[0].source, "players");
+        assert_eq!(
+            plan.sources[0].predicate.sql,
+            "((\"players\".\"position\" = ?))"
+        );
+        assert_eq!(plan.sources[1].source, "stats");
+        assert_eq!(plan.sources[1].predicate.sql, "((\"stats\".\"ppg\" >= ?))");
+        assert_eq!(plan.diagnostics[0].kind, "unsupported_sqlite_fold");
+        assert_eq!(
+            plan.residual
+                .as_ref()
+                .and_then(|node| node.field.as_ref())
+                .map(|field| field.path.as_str()),
+            Some("tags")
+        );
+    }
+
+    #[test]
+    fn sqlite_fold_plan_keeps_cross_source_or_residual() {
+        let mut catalog = FoldCatalog::new();
+        catalog
+            .insert_sqlite(
+                "player.position",
+                ValueType::String,
+                "players",
+                "players.position",
+            )
+            .insert_sqlite("stats.ppg", ValueType::Number, "stats", "stats.ppg");
+        let expr = parse("player.position eq 'C' or stats.ppg ge 0.8").unwrap();
+        let plan = expr.plan_sqlite(&catalog).unwrap();
+
+        assert!(plan.sources.is_empty());
+        assert_eq!(plan.diagnostics[0].kind, "cross_source_boolean");
+        assert_eq!(
+            plan.residual.as_ref().map(|node| node.kind.as_str()),
+            Some("any")
         );
     }
 

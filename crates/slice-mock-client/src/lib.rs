@@ -1,9 +1,13 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
+use rusqlite::{params, params_from_iter, types::Value as SqlValue, Connection};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
-use slice_core::{ExplainReport, FieldCatalog, Operator, RequirementReport, ValueType};
+use slice_core::{
+    ExplainReport, FieldCatalog, FoldCatalog, FoldPlan, Literal, Operator, RequirementReport,
+    ValueType,
+};
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct MockClientReport {
@@ -13,6 +17,7 @@ pub struct MockClientReport {
     pub crop_frontmatter_parity: CropFrontmatterParityReport,
     pub fletch: FletchSelectionReport,
     pub icelines: SelectionReport,
+    pub icelines_sqlite: SqliteFoldSelectionReport,
     pub passed: bool,
 }
 
@@ -42,6 +47,14 @@ pub struct CropFrontmatterParityReport {
     pub requirements: RequirementReport,
     pub input_count: usize,
     pub selected_sources: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct SqliteFoldSelectionReport {
+    pub expression: String,
+    pub plan: FoldPlan,
+    pub folded_candidate_count: usize,
+    pub selected_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -79,6 +92,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         "player.id",
         icelines_catalog(),
     )?;
+    let icelines_sqlite = select_icelines_sqlite_folded()?;
 
     let passed = pebble.selected_ids == ["pebble:guide"]
         && crop.selected_ids == ["crop:unit:frontmatter"]
@@ -90,7 +104,8 @@ pub fn run_mock_client() -> Result<MockClientReport> {
                 partition_ids: vec!["partition:icelines:leaders".to_string()],
                 cache_keys: vec!["cache:icelines:leaders:2026".to_string()],
             }]
-        && icelines.selected_ids == ["847-mock-swe-c"];
+        && icelines.selected_ids == ["847-mock-swe-c"]
+        && icelines_sqlite.selected_ids == ["847-mock-swe-c"];
 
     Ok(MockClientReport {
         schema: "slice.mock-client.v1".to_string(),
@@ -99,6 +114,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         crop_frontmatter_parity,
         fletch,
         icelines,
+        icelines_sqlite,
         passed,
     })
 }
@@ -186,6 +202,139 @@ fn select_crop_frontmatter_sources(
         input_count,
         selected_sources,
     })
+}
+
+fn select_icelines_sqlite_folded() -> Result<SqliteFoldSelectionReport> {
+    let expr = "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'";
+    let catalog = icelines_sqlite_fold_catalog();
+    let selector = slice_core::compile(expr, &catalog.field_catalog())
+        .with_context(|| format!("failed to compile SQLite fold expression {expr:?}"))?;
+    let plan = slice_core::parse(expr)
+        .with_context(|| format!("failed to parse SQLite fold expression {expr:?}"))?
+        .plan_sqlite(&catalog)
+        .with_context(|| format!("failed to plan SQLite fold expression {expr:?}"))?;
+
+    let connection = open_mock_icelines_sqlite()?;
+    let where_sql = plan
+        .sources
+        .iter()
+        .map(|source| source.predicate.sql.as_str())
+        .collect::<Vec<_>>()
+        .join(" AND ");
+    let sql = format!(
+        "SELECT players.id, players.position, players.nationality, stats.ppg, stats.goals, stats.tags_json \
+         FROM players JOIN stats ON stats.player_id = players.id WHERE {where_sql}"
+    );
+    let params = plan
+        .sources
+        .iter()
+        .flat_map(|source| source.predicate.params.iter().map(sql_value))
+        .collect::<Result<Vec<_>>>()?;
+    let mut statement = connection.prepare(&sql)?;
+    let candidates = statement
+        .query_map(params_from_iter(params), |row| {
+            let tags_json: String = row.get(5)?;
+            let tags = serde_json::from_str::<Value>(&tags_json).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    5,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })?;
+            Ok(json!({
+                "player": {
+                    "id": row.get::<_, String>(0)?,
+                    "position": row.get::<_, String>(1)?,
+                    "nationality": row.get::<_, String>(2)?
+                },
+                "stats": {
+                    "ppg": row.get::<_, f64>(3)?,
+                    "goals": row.get::<_, i64>(4)?,
+                    "tags": tags
+                }
+            }))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let folded_candidate_count = candidates.len();
+    let selected_ids = candidates
+        .iter()
+        .filter(|row| selector.matches(row))
+        .map(|row| string_path(row, &["player".to_string(), "id".to_string()]))
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(SqliteFoldSelectionReport {
+        expression: expr.to_string(),
+        plan,
+        folded_candidate_count,
+        selected_ids,
+    })
+}
+
+fn open_mock_icelines_sqlite() -> Result<Connection> {
+    let connection = Connection::open_in_memory()?;
+    connection.execute_batch(
+        "CREATE TABLE players (
+            id TEXT PRIMARY KEY,
+            position TEXT NOT NULL,
+            nationality TEXT NOT NULL
+        );
+        CREATE TABLE stats (
+            player_id TEXT NOT NULL,
+            ppg REAL NOT NULL,
+            goals INTEGER NOT NULL,
+            tags_json TEXT NOT NULL
+        );",
+    )?;
+    connection.execute(
+        "INSERT INTO players (id, position, nationality) VALUES (?1, ?2, ?3)",
+        params!["847-mock-swe-c", "C", "SWE"],
+    )?;
+    connection.execute(
+        "INSERT INTO stats (player_id, ppg, goals, tags_json) VALUES (?1, ?2, ?3, ?4)",
+        params![
+            "847-mock-swe-c",
+            0.82_f64,
+            32_i64,
+            r#"["playoffs","leader"]"#
+        ],
+    )?;
+    connection.execute(
+        "INSERT INTO players (id, position, nationality) VALUES (?1, ?2, ?3)",
+        params!["847-mock-can-d", "D", "CAN"],
+    )?;
+    connection.execute(
+        "INSERT INTO stats (player_id, ppg, goals, tags_json) VALUES (?1, ?2, ?3, ?4)",
+        params!["847-mock-can-d", 0.91_f64, 18_i64, r#"["playoffs"]"#],
+    )?;
+    connection.execute(
+        "INSERT INTO players (id, position, nationality) VALUES (?1, ?2, ?3)",
+        params!["847-mock-usa-c", "C", "USA"],
+    )?;
+    connection.execute(
+        "INSERT INTO stats (player_id, ppg, goals, tags_json) VALUES (?1, ?2, ?3, ?4)",
+        params!["847-mock-usa-c", 0.74_f64, 20_i64, r#"["leader"]"#],
+    )?;
+    connection.execute(
+        "INSERT INTO players (id, position, nationality) VALUES (?1, ?2, ?3)",
+        params!["847-mock-fin-c", "C", "FIN"],
+    )?;
+    connection.execute(
+        "INSERT INTO stats (player_id, ppg, goals, tags_json) VALUES (?1, ?2, ?3, ?4)",
+        params!["847-mock-fin-c", 0.86_f64, 24_i64, r#"["leader"]"#],
+    )?;
+    Ok(connection)
+}
+
+fn sql_value(literal: &Literal) -> Result<SqlValue> {
+    match literal {
+        Literal::String(value) => Ok(SqlValue::Text(value.clone())),
+        Literal::Number(value) => Ok(SqlValue::Real(*value)),
+        Literal::Bool(value) => Ok(SqlValue::Integer(i64::from(*value))),
+        Literal::Null => Ok(SqlValue::Null),
+        Literal::List(_) | Literal::Range { .. } => {
+            anyhow::bail!("nested list/range literal cannot be bound as one SQLite parameter")
+        }
+    }
 }
 
 fn crop_frontmatter_catalog(expr: &str) -> Result<FieldCatalog> {
@@ -316,6 +465,27 @@ fn icelines_catalog() -> FieldCatalog {
         .insert("player.position", ValueType::String)
         .insert("player.nationality", ValueType::String)
         .insert("stats.ppg", ValueType::Number);
+    catalog
+}
+
+fn icelines_sqlite_fold_catalog() -> FoldCatalog {
+    let mut catalog = FoldCatalog::new();
+    catalog
+        .insert_sqlite(
+            "player.position",
+            ValueType::String,
+            "players",
+            "players.position",
+        )
+        .insert_sqlite(
+            "player.nationality",
+            ValueType::String,
+            "players",
+            "players.nationality",
+        )
+        .insert_sqlite("stats.ppg", ValueType::Number, "stats", "stats.ppg")
+        .insert_sqlite("stats.goals", ValueType::Number, "stats", "stats.goals")
+        .insert_sqlite("stats.tags", ValueType::Array, "stats", "stats.tags_json");
     catalog
 }
 
@@ -490,6 +660,9 @@ mod tests {
         assert_eq!(report.icelines.selected_ids, ["847-mock-swe-c"]);
         assert_eq!(report.icelines.explain.fields[2].path, "stats.ppg");
         assert_eq!(report.icelines.requirements.field_count, 3);
+        assert_eq!(report.icelines_sqlite.selected_ids, ["847-mock-swe-c"]);
+        assert_eq!(report.icelines_sqlite.plan.source_count, 2);
+        assert!(report.icelines_sqlite.plan.residual.is_some());
     }
 
     #[test]
@@ -515,5 +688,16 @@ mod tests {
         .unwrap();
 
         assert_eq!(report.selected_sources, ["docs/without-owner.md"]);
+    }
+
+    #[test]
+    fn sqlite_fold_mock_filters_join_candidates_then_applies_residual() {
+        let report = select_icelines_sqlite_folded().unwrap();
+
+        assert_eq!(report.folded_candidate_count, 2);
+        assert_eq!(report.selected_ids, ["847-mock-swe-c"]);
+        assert_eq!(report.plan.sources[0].source, "players");
+        assert_eq!(report.plan.sources[1].source, "stats");
+        assert_eq!(report.plan.diagnostics[0].kind, "unsupported_sqlite_fold");
     }
 }

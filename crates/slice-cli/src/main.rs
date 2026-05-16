@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -23,6 +23,18 @@ enum Command {
         /// Optional JSON catalog for typed validation and requirements.
         #[arg(long)]
         catalog: Option<PathBuf>,
+    },
+    /// Plan backend predicate folding without scanning input rows.
+    Plan {
+        /// SLICE expression to plan.
+        #[arg(long)]
+        expr: String,
+        /// JSON fold catalog mapping field paths to type/source/column metadata.
+        #[arg(long)]
+        catalog: PathBuf,
+        /// Backend target for folded predicates.
+        #[arg(long, value_enum, default_value_t = PlanBackend::Sqlite)]
+        backend: PlanBackend,
     },
     /// Evaluate an expression over JSON, JSONL, or Markdown table input.
     Eval {
@@ -66,6 +78,11 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Explain { expr, catalog } => run_explain(&expr, catalog.as_ref()),
+        Command::Plan {
+            expr,
+            catalog,
+            backend,
+        } => run_plan(&expr, &catalog, backend),
         Command::Eval {
             expr,
             input,
@@ -93,6 +110,19 @@ fn main() -> Result<()> {
                 count,
             },
         ),
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum PlanBackend {
+    Sqlite,
+}
+
+impl std::fmt::Display for PlanBackend {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlanBackend::Sqlite => formatter.write_str("sqlite"),
+        }
     }
 }
 
@@ -175,6 +205,50 @@ fn run_explain(expr: &str, catalog: Option<&PathBuf>) -> Result<()> {
             );
             anyhow::bail!("SLICE expression parse failed");
         }
+    }
+    Ok(())
+}
+
+fn run_plan(expr: &str, catalog: &PathBuf, backend: PlanBackend) -> Result<()> {
+    let content = fs::read_to_string(catalog)
+        .with_context(|| format!("failed to read catalog {}", catalog.display()))?;
+    let catalog = parse_fold_catalog(&content).context("failed to parse SLICE fold catalog")?;
+    let parsed = match slice_core::parse(expr) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&ExplainOutput {
+                    schema: "slice.cli.plan.v1",
+                    status: "error",
+                    explain: None,
+                    parse: None,
+                    requirements: None,
+                    diagnostic: Some(error.diagnostic()),
+                })?
+            );
+            anyhow::bail!("SLICE expression parse failed");
+        }
+    };
+
+    match backend {
+        PlanBackend::Sqlite => match parsed.plan_sqlite(&catalog) {
+            Ok(plan) => println!("{}", serde_json::to_string_pretty(&plan)?),
+            Err(error) => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&ExplainOutput {
+                        schema: "slice.cli.plan.v1",
+                        status: "error",
+                        explain: None,
+                        parse: None,
+                        requirements: None,
+                        diagnostic: Some(error.diagnostic()),
+                    })?
+                );
+                anyhow::bail!("SLICE expression fold planning failed for {backend}");
+            }
+        },
     }
     Ok(())
 }
@@ -305,6 +379,39 @@ fn parse_catalog(content: &str) -> Result<slice_core::FieldCatalog> {
             .as_str()
             .with_context(|| format!("catalog field {path:?} must map to a string value type"))?;
         catalog.insert(path, parse_value_type(type_name)?);
+    }
+    Ok(catalog)
+}
+
+fn parse_fold_catalog(content: &str) -> Result<slice_core::FoldCatalog> {
+    let value: Value = serde_json::from_str(content).context("catalog must be JSON")?;
+    let fields = value
+        .get("fields")
+        .unwrap_or(&value)
+        .as_object()
+        .context("catalog must be an object or contain an object-valued 'fields' key")?;
+    let mut catalog = slice_core::FoldCatalog::new();
+    for (path, spec) in fields {
+        match spec {
+            Value::String(type_name) => {
+                catalog.insert_sqlite(path, parse_value_type(type_name)?, "default", path);
+            }
+            Value::Object(object) => {
+                let type_name = object
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .with_context(|| format!("fold catalog field {path:?} must include a type"))?;
+                let source = object
+                    .get("source")
+                    .and_then(Value::as_str)
+                    .unwrap_or("default");
+                let column = object.get("column").and_then(Value::as_str).unwrap_or(path);
+                catalog.insert_sqlite(path, parse_value_type(type_name)?, source, column);
+            }
+            _ => anyhow::bail!(
+                "fold catalog field {path:?} must map to a string type or object spec"
+            ),
+        }
     }
     Ok(catalog)
 }
@@ -644,6 +751,31 @@ mod tests {
         let err = parse_catalog(r#"{"repo": "text"}"#).unwrap_err();
 
         assert!(err.to_string().contains("unsupported catalog value type"));
+    }
+
+    #[test]
+    fn parse_fold_catalog_accepts_source_and_column_specs() {
+        let catalog = parse_fold_catalog(
+            r#"{
+                "fields": {
+                    "player.position": {
+                        "type": "string",
+                        "source": "players",
+                        "column": "players.position"
+                    },
+                    "stats.ppg": "number"
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let position = catalog.get("player.position").unwrap();
+        assert_eq!(position.value_type(), slice_core::ValueType::String);
+        assert_eq!(position.source(), "players");
+        assert_eq!(position.column(), "players.position");
+        let ppg = catalog.get("stats.ppg").unwrap();
+        assert_eq!(ppg.source(), "default");
+        assert_eq!(ppg.column(), "stats.ppg");
     }
 
     #[test]

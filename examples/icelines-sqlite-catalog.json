@@ -1,0 +1,34 @@
+{
+  "fields": {
+    "player.id": {
+      "type": "string",
+      "source": "players",
+      "column": "players.id"
+    },
+    "player.position": {
+      "type": "string",
+      "source": "players",
+      "column": "players.position"
+    },
+    "player.nationality": {
+      "type": "string",
+      "source": "players",
+      "column": "players.nationality"
+    },
+    "stats.ppg": {
+      "type": "number",
+      "source": "stats",
+      "column": "stats.ppg"
+    },
+    "stats.goals": {
+      "type": "number",
+      "source": "stats",
+      "column": "stats.goals"
+    },
+    "stats.tags": {
+      "type": "array",
+      "source": "stats",
+      "column": "stats.tags_json"
+    }
+  }
+}
