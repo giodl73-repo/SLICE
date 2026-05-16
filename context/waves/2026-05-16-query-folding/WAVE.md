@@ -33,6 +33,7 @@ domain semantics, and whether a folded plan is safe to execute.
 |------:|-------|--------|---------|
 | 01 | SQLite fold plan | done | Added per-source SQLite predicate planning, residuals, CLI plan output, and a mock SQLite join proof. |
 | 02 | OData fold plan | done | Added OData predicate folding on the same per-source plan shape, including CLI output and residual diagnostics. |
+| 03 | ICELINES fold adoption | done | ICELINES adopted prepared-player SQLite fold planning while keeping schema joins and execution local. |
 
 ## Validation gates
 
@@ -53,6 +54,8 @@ domain semantics, and whether a folded plan is safe to execute.
   a join while leaving unsupported branches as residual local filters.
 - The mock client demonstrates an ICELINES-style SQLite join using folded
   predicates from more than one source.
+- ICELINES exposes a prepared-player SQLite fold helper that consumers can attach
+  to ICELINES-owned joins.
 
 ## Non-goals
 
