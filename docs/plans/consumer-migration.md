@@ -62,6 +62,9 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      after PROOF has already compiled and produced manifest-shaped rows.
 
 5. **ICELINES simple bio/stat adapter**
+   - Status: example adoption in ICELINES commit `b4e05b2`; tests demonstrate
+     simple prepared player bio/stat row predicates with a dev-only `slice-core`
+     dependency.
    - Target: only simple player bio/stat filters that map cleanly to typed row
      fields.
    - SLICE owns: the low-level predicate kernel.
@@ -69,7 +72,8 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      aggregation, leaderboards, similarity, ranking, percentiles, and data
      requirements.
    - Gate: adapter tests prove parity for simple filters while advanced query
-     features stay in ICELINES.
+     features stay in ICELINES. This gate is met for simple player position,
+     nationality, and points-per-game row filters.
 
 ## Readiness checklist
 
@@ -90,8 +94,9 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
 - **Adapter Boundary Keeper:** Pass if CROP, Pebble, FLETCH, PROOF, and ICELINES
   each keep their domain policy and expose only field catalogs plus row values to
   SLICE.
-- **Diagnostics Auditor:** Needs the next pulse to improve byte-span and
-  compatibility diagnostics before a real CROP adapter is merged.
+- **Diagnostics Auditor:** Pass for current examples because `slice-core` now
+  exposes diagnostic and requirements reports; downstream adapters still own how
+  those reports are surfaced to authors.
 - **Performance Engineer:** Pass for fixture-scale adapters; larger manifests
   should benchmark selection over prepared rows before replacing hot paths.
 - **Stakeholder POV:** CROP is the first useful migration because its
