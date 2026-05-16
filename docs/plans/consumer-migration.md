@@ -64,9 +64,9 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      compiled and produced manifest-shaped rows.
 
 5. **ICELINES simple bio/stat adapter**
-   - Status: example adoption in ICELINES commit `b4e05b2`; tests demonstrate
-     simple prepared player bio/stat row predicates with a dev-only `slice-core`
-     dependency.
+   - Status: runtime adoption in ICELINES commit `3848d51`; `icelines-query`
+     exposes SLICE-backed helpers for simple prepared player bio/stat row
+     predicates.
    - Target: only simple player bio/stat filters that map cleanly to typed row
      fields.
    - SLICE owns: the low-level predicate kernel.
@@ -74,8 +74,9 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      aggregation, leaderboards, similarity, ranking, percentiles, and data
      requirements.
    - Gate: adapter tests prove parity for simple filters while advanced query
-     features stay in ICELINES. This gate is met for simple player position,
-     nationality, and points-per-game row filters.
+     features stay in ICELINES. This gate is met by ICELINES' prepared-player
+     selector tests for simple player position, nationality, and stat row
+     filters.
 
 ## Readiness checklist
 

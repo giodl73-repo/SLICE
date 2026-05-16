@@ -32,6 +32,7 @@ new predicate language.
 | 14 | PEBBLE optional runtime selectors | done | PEBBLE added a feature-gated SLICE selector helper for document and section metadata rows. |
 | 15 | PROOF artifact runtime selectors | done | PROOF added a SLICE-backed artifact manifest selector helper over prepared compile report rows. |
 | 16 | FLETCH row runtime selectors | done | FLETCH added SLICE-backed helpers for cache-index and active-partition rows while keeping fetch/cache and quiver policy local. |
+| 17 | ICELINES prepared-row runtime selectors | done | ICELINES added SLICE-backed helpers for prepared player bio/stat rows while keeping hockey query semantics local. |
 
 ## Success criteria
 
