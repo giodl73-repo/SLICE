@@ -25,6 +25,7 @@ new predicate language.
 | 07 | Requirement reports | done | Added deduplicated typed field requirements for adapter materialization. |
 | 08 | CROP parity mock | done | Proved CROP frontmatter-query behavior in the mock client without moving CROP policy into core. |
 | 09 | First consumer adoption | done | CROP adopted `slice-core` for `frontmatter_query` while keeping view and graph policy local. |
+| 10 | PEBBLE selector examples | done | PEBBLE added dev-only SLICE tests for document and section metadata selectors. |
 
 ## Success criteria
 
