@@ -32,7 +32,7 @@ The first contract is intentionally small:
 - optional typed field catalogs before evaluation, including CLI `--catalog`
   JSON files;
 - machine-readable parse and typed explain reports with expression trees;
-- SQLite fold plans with per-source predicates, parameters, requirements,
+- SQLite and OData fold plans with per-source predicates, parameters, requirements,
   residual filters, and diagnostics;
 - CLI adapters for JSON arrays, JSONL rows, and Markdown tables;
 - CLI projection with `--fields` for emitting only selected row fields;
@@ -86,12 +86,16 @@ diagnostics without scanning input rows:
 slice explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
 ```
 
-Use `slice plan` to inspect which predicates can be pushed into SQLite before a
-consumer executes a query. Multi-source `and` branches fold independently so a
-consumer can attach each predicate to its own side of a join:
+Use `slice plan` to inspect which predicates can be pushed into SQLite or OData
+before a consumer executes a query. Multi-source `and` branches fold
+independently so a consumer can attach each predicate to its own side of a join:
 
 ```bash
 slice plan --backend sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
+```
+
+```bash
+slice plan --backend odata --catalog examples/icelines-odata-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
 ```
 
 ## Formalism
@@ -186,6 +190,7 @@ cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice
 cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --count
 cargo run -p slice-cli -- explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
 cargo run -p slice-cli -- plan --backend sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
+cargo run -p slice-cli -- plan --backend odata --catalog examples/icelines-odata-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
 cargo run -p slice-mock-client
 ```
 

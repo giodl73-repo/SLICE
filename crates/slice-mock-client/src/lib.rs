@@ -218,7 +218,7 @@ fn select_icelines_sqlite_folded() -> Result<SqliteFoldSelectionReport> {
     let where_sql = plan
         .sources
         .iter()
-        .map(|source| source.predicate.sql.as_str())
+        .map(|source| source.predicate.text.as_str())
         .collect::<Vec<_>>()
         .join(" AND ");
     let sql = format!(

@@ -212,13 +212,15 @@ pub struct FoldPlan {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FoldSourcePlan {
     pub source: String,
-    pub predicate: SqlitePredicate,
+    pub predicate: FoldPredicate,
     pub folded_clause_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct SqlitePredicate {
-    pub sql: String,
+pub struct FoldPredicate {
+    pub language: String,
+    pub text: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<Literal>,
 }
 
@@ -517,25 +519,37 @@ impl Expr {
     }
 
     pub fn plan_sqlite(&self, catalog: &FoldCatalog) -> Result<FoldPlan, SliceError> {
+        self.plan_fold(catalog, FoldBackend::Sqlite)
+    }
+
+    pub fn plan_odata(&self, catalog: &FoldCatalog) -> Result<FoldPlan, SliceError> {
+        self.plan_fold(catalog, FoldBackend::OData)
+    }
+
+    fn plan_fold(
+        &self,
+        catalog: &FoldCatalog,
+        backend: FoldBackend,
+    ) -> Result<FoldPlan, SliceError> {
         let field_catalog = catalog.field_catalog();
         self.validate(&field_catalog)?;
         let requirements = self.requirements(&field_catalog)?;
         let mut accumulator = FoldAccumulator::default();
-        fold_top_level_and(&self.root, catalog, &mut accumulator);
+        fold_top_level_and(&self.root, catalog, backend, &mut accumulator);
         let residual = combine_residuals(accumulator.residuals).map(|node| node.explain_parse());
         let sources = accumulator
             .sources
             .into_iter()
             .map(|(source, source_fold)| FoldSourcePlan {
                 source,
-                predicate: combine_sqlite_predicates("and", source_fold.predicates),
+                predicate: combine_fold_predicates("and", backend, source_fold.predicates),
                 folded_clause_count: source_fold.folded_clause_count,
             })
             .collect::<Vec<_>>();
 
         Ok(FoldPlan {
             schema: "slice.fold.v1".to_string(),
-            backend: "sqlite".to_string(),
+            backend: backend.name().to_string(),
             source_count: sources.len(),
             sources,
             requirements,
@@ -637,25 +651,73 @@ struct FoldAccumulator {
 
 #[derive(Debug, Default)]
 struct SourceFold {
-    predicates: Vec<SqlitePredicate>,
+    predicates: Vec<FoldPredicate>,
     folded_clause_count: usize,
 }
 
 #[derive(Debug)]
 struct SingleFold {
     source: String,
-    predicate: SqlitePredicate,
+    predicate: FoldPredicate,
     folded_clause_count: usize,
 }
 
-fn fold_top_level_and(node: &ExprNode, catalog: &FoldCatalog, accumulator: &mut FoldAccumulator) {
+#[derive(Debug, Clone, Copy)]
+enum FoldBackend {
+    Sqlite,
+    OData,
+}
+
+impl FoldBackend {
+    fn name(self) -> &'static str {
+        match self {
+            FoldBackend::Sqlite => "sqlite",
+            FoldBackend::OData => "odata",
+        }
+    }
+
+    fn language(self) -> &'static str {
+        match self {
+            FoldBackend::Sqlite => "sql",
+            FoldBackend::OData => "odata",
+        }
+    }
+
+    fn and(self) -> &'static str {
+        match self {
+            FoldBackend::Sqlite => " AND ",
+            FoldBackend::OData => " and ",
+        }
+    }
+
+    fn or(self) -> &'static str {
+        match self {
+            FoldBackend::Sqlite => " OR ",
+            FoldBackend::OData => " or ",
+        }
+    }
+
+    fn not(self, text: &str) -> String {
+        match self {
+            FoldBackend::Sqlite => format!("(NOT {text})"),
+            FoldBackend::OData => format!("(not {text})"),
+        }
+    }
+}
+
+fn fold_top_level_and(
+    node: &ExprNode,
+    catalog: &FoldCatalog,
+    backend: FoldBackend,
+    accumulator: &mut FoldAccumulator,
+) {
     match node {
         ExprNode::All(children) => {
             for child in children {
-                fold_top_level_and(child, catalog, accumulator);
+                fold_top_level_and(child, catalog, backend, accumulator);
             }
         }
-        _ => match fold_single_source(node, catalog) {
+        _ => match fold_single_source(node, catalog, backend) {
             Ok(fold) => {
                 let source = accumulator.sources.entry(fold.source).or_default();
                 source.predicates.push(fold.predicate);
@@ -672,17 +734,19 @@ fn fold_top_level_and(node: &ExprNode, catalog: &FoldCatalog, accumulator: &mut 
 fn fold_single_source(
     node: &ExprNode,
     catalog: &FoldCatalog,
+    backend: FoldBackend,
 ) -> Result<SingleFold, FoldDiagnostic> {
     match node {
-        ExprNode::Clause(clause) => sqlite_clause(clause, catalog),
-        ExprNode::All(children) => fold_boolean_children("and", children, catalog),
-        ExprNode::Any(children) => fold_boolean_children("or", children, catalog),
+        ExprNode::Clause(clause) => fold_clause(clause, catalog, backend),
+        ExprNode::All(children) => fold_boolean_children("and", children, catalog, backend),
+        ExprNode::Any(children) => fold_boolean_children("or", children, catalog, backend),
         ExprNode::Not(child) => {
-            let child = fold_single_source(child, catalog)?;
+            let child = fold_single_source(child, catalog, backend)?;
             Ok(SingleFold {
                 source: child.source,
-                predicate: SqlitePredicate {
-                    sql: format!("(NOT {})", child.predicate.sql),
+                predicate: FoldPredicate {
+                    language: backend.language().to_string(),
+                    text: backend.not(&child.predicate.text),
                     params: child.predicate.params,
                 },
                 folded_clause_count: child.folded_clause_count,
@@ -695,10 +759,11 @@ fn fold_boolean_children(
     kind: &str,
     children: &[ExprNode],
     catalog: &FoldCatalog,
+    backend: FoldBackend,
 ) -> Result<SingleFold, FoldDiagnostic> {
     let mut folded = Vec::<SingleFold>::new();
     for child in children {
-        folded.push(fold_single_source(child, catalog)?);
+        folded.push(fold_single_source(child, catalog, backend)?);
     }
 
     let Some(first) = folded.first() else {
@@ -729,9 +794,20 @@ fn fold_boolean_children(
         .collect::<Vec<_>>();
     Ok(SingleFold {
         source,
-        predicate: combine_sqlite_predicates(kind, predicates),
+        predicate: combine_fold_predicates(kind, backend, predicates),
         folded_clause_count,
     })
+}
+
+fn fold_clause(
+    clause: &Clause,
+    catalog: &FoldCatalog,
+    backend: FoldBackend,
+) -> Result<SingleFold, FoldDiagnostic> {
+    match backend {
+        FoldBackend::Sqlite => sqlite_clause(clause, catalog),
+        FoldBackend::OData => odata_clause(clause, catalog),
+    }
 }
 
 fn sqlite_clause(clause: &Clause, catalog: &FoldCatalog) -> Result<SingleFold, FoldDiagnostic> {
@@ -746,12 +822,14 @@ fn sqlite_clause(clause: &Clause, catalog: &FoldCatalog) -> Result<SingleFold, F
     };
     let column = quote_sqlite_identifier(field.column());
     let predicate = match clause.op {
-        Operator::Eq if matches!(clause.literal, Literal::Null) => SqlitePredicate {
-            sql: format!("({column} IS NULL)"),
+        Operator::Eq if matches!(clause.literal, Literal::Null) => FoldPredicate {
+            language: "sql".to_string(),
+            text: format!("({column} IS NULL)"),
             params: Vec::new(),
         },
-        Operator::Ne if matches!(clause.literal, Literal::Null) => SqlitePredicate {
-            sql: format!("({column} IS NOT NULL)"),
+        Operator::Ne if matches!(clause.literal, Literal::Null) => FoldPredicate {
+            language: "sql".to_string(),
+            text: format!("({column} IS NOT NULL)"),
             params: Vec::new(),
         },
         Operator::Eq => binary_sqlite_predicate(&column, "=", &clause.literal),
@@ -760,23 +838,40 @@ fn sqlite_clause(clause: &Clause, catalog: &FoldCatalog) -> Result<SingleFold, F
         Operator::Ge => binary_sqlite_predicate(&column, ">=", &clause.literal),
         Operator::Lt => binary_sqlite_predicate(&column, "<", &clause.literal),
         Operator::Le => binary_sqlite_predicate(&column, "<=", &clause.literal),
-        Operator::IsNull => SqlitePredicate {
-            sql: format!("({column} IS NULL)"),
+        Operator::IsNull => FoldPredicate {
+            language: "sql".to_string(),
+            text: format!("({column} IS NULL)"),
             params: Vec::new(),
         },
-        Operator::IsNotNull => SqlitePredicate {
-            sql: format!("({column} IS NOT NULL)"),
+        Operator::IsNotNull => FoldPredicate {
+            language: "sql".to_string(),
+            text: format!("({column} IS NOT NULL)"),
             params: Vec::new(),
         },
         Operator::In | Operator::NotIn => {
-            sqlite_list_predicate(&column, clause.op, &clause.literal)
-                .ok_or_else(|| unsupported_fold(&path, clause.op, "list literal is required"))?
+            sqlite_list_predicate(&column, clause.op, &clause.literal).ok_or_else(|| {
+                unsupported_fold(
+                    FoldBackend::Sqlite,
+                    &path,
+                    clause.op,
+                    "list literal is required",
+                )
+            })?
         }
-        Operator::Between => sqlite_between_predicate(&column, &clause.literal)
-            .ok_or_else(|| unsupported_fold(&path, clause.op, "range literal is required"))?,
+        Operator::Between => {
+            sqlite_between_predicate(&column, &clause.literal).ok_or_else(|| {
+                unsupported_fold(
+                    FoldBackend::Sqlite,
+                    &path,
+                    clause.op,
+                    "range literal is required",
+                )
+            })?
+        }
         Operator::Contains | Operator::StartsWith | Operator::EndsWith => {
             sqlite_like_predicate(&column, clause.op, &clause.literal).ok_or_else(|| {
                 unsupported_fold(
+                    FoldBackend::Sqlite,
                     &path,
                     clause.op,
                     "string literal is required for LIKE folding",
@@ -785,6 +880,7 @@ fn sqlite_clause(clause: &Clause, catalog: &FoldCatalog) -> Result<SingleFold, F
         }
         Operator::Has | Operator::HasAny | Operator::HasAll => {
             return Err(unsupported_fold(
+                FoldBackend::Sqlite,
                 &path,
                 clause.op,
                 "array/object containment stays as a residual local filter",
@@ -799,9 +895,10 @@ fn sqlite_clause(clause: &Clause, catalog: &FoldCatalog) -> Result<SingleFold, F
     })
 }
 
-fn binary_sqlite_predicate(column: &str, operator: &str, literal: &Literal) -> SqlitePredicate {
-    SqlitePredicate {
-        sql: format!("({column} {operator} ?)"),
+fn binary_sqlite_predicate(column: &str, operator: &str, literal: &Literal) -> FoldPredicate {
+    FoldPredicate {
+        language: "sql".to_string(),
+        text: format!("({column} {operator} ?)"),
         params: vec![literal.clone()],
     }
 }
@@ -810,7 +907,7 @@ fn sqlite_list_predicate(
     column: &str,
     operator: Operator,
     literal: &Literal,
-) -> Option<SqlitePredicate> {
+) -> Option<FoldPredicate> {
     let Literal::List(values) = literal else {
         return None;
     };
@@ -825,18 +922,20 @@ fn sqlite_list_predicate(
         Operator::NotIn => "NOT IN",
         _ => return None,
     };
-    Some(SqlitePredicate {
-        sql: format!("({column} {sql_operator} ({placeholders}))"),
+    Some(FoldPredicate {
+        language: "sql".to_string(),
+        text: format!("({column} {sql_operator} ({placeholders}))"),
         params: values.clone(),
     })
 }
 
-fn sqlite_between_predicate(column: &str, literal: &Literal) -> Option<SqlitePredicate> {
+fn sqlite_between_predicate(column: &str, literal: &Literal) -> Option<FoldPredicate> {
     let Literal::Range { min, max } = literal else {
         return None;
     };
-    Some(SqlitePredicate {
-        sql: format!("({column} BETWEEN ? AND ?)"),
+    Some(FoldPredicate {
+        language: "sql".to_string(),
+        text: format!("({column} BETWEEN ? AND ?)"),
         params: vec![(**min).clone(), (**max).clone()],
     })
 }
@@ -845,7 +944,7 @@ fn sqlite_like_predicate(
     column: &str,
     operator: Operator,
     literal: &Literal,
-) -> Option<SqlitePredicate> {
+) -> Option<FoldPredicate> {
     let Literal::String(value) = literal else {
         return None;
     };
@@ -855,35 +954,217 @@ fn sqlite_like_predicate(
         Operator::EndsWith => format!("%{value}"),
         _ => return None,
     };
-    Some(SqlitePredicate {
-        sql: format!("({column} LIKE ?)"),
+    Some(FoldPredicate {
+        language: "sql".to_string(),
+        text: format!("({column} LIKE ?)"),
         params: vec![Literal::String(pattern)],
     })
 }
 
-fn combine_sqlite_predicates(kind: &str, predicates: Vec<SqlitePredicate>) -> SqlitePredicate {
+fn odata_clause(clause: &Clause, catalog: &FoldCatalog) -> Result<SingleFold, FoldDiagnostic> {
+    let path = clause.path.join(".");
+    let Some(field) = catalog.get(&path) else {
+        return Err(FoldDiagnostic {
+            kind: "unknown_fold_field".to_string(),
+            message: format!("{path} is not present in the fold catalog"),
+            path: Some(path),
+            operator: Some(clause.op),
+        });
+    };
+    let property = odata_property_path(field.column());
+    let predicate = match clause.op {
+        Operator::Eq => binary_odata_predicate(&property, "eq", &clause.literal),
+        Operator::Ne => binary_odata_predicate(&property, "ne", &clause.literal),
+        Operator::Gt => binary_odata_predicate(&property, "gt", &clause.literal),
+        Operator::Ge => binary_odata_predicate(&property, "ge", &clause.literal),
+        Operator::Lt => binary_odata_predicate(&property, "lt", &clause.literal),
+        Operator::Le => binary_odata_predicate(&property, "le", &clause.literal),
+        Operator::IsNull => FoldPredicate {
+            language: "odata".to_string(),
+            text: format!("({property} eq null)"),
+            params: Vec::new(),
+        },
+        Operator::IsNotNull => FoldPredicate {
+            language: "odata".to_string(),
+            text: format!("({property} ne null)"),
+            params: Vec::new(),
+        },
+        Operator::In | Operator::NotIn => {
+            odata_list_predicate(&property, clause.op, &clause.literal).ok_or_else(|| {
+                unsupported_fold(
+                    FoldBackend::OData,
+                    &path,
+                    clause.op,
+                    "list literal is required",
+                )
+            })?
+        }
+        Operator::Between => {
+            odata_between_predicate(&property, &clause.literal).ok_or_else(|| {
+                unsupported_fold(
+                    FoldBackend::OData,
+                    &path,
+                    clause.op,
+                    "range literal is required",
+                )
+            })?
+        }
+        Operator::Contains | Operator::StartsWith | Operator::EndsWith => {
+            odata_string_function(&property, clause.op, &clause.literal).ok_or_else(|| {
+                unsupported_fold(
+                    FoldBackend::OData,
+                    &path,
+                    clause.op,
+                    "string literal is required for OData function folding",
+                )
+            })?
+        }
+        Operator::Has | Operator::HasAny | Operator::HasAll => {
+            return Err(unsupported_fold(
+                FoldBackend::OData,
+                &path,
+                clause.op,
+                "array/object containment stays as a residual local filter",
+            ));
+        }
+    };
+
+    Ok(SingleFold {
+        source: field.source().to_string(),
+        predicate,
+        folded_clause_count: 1,
+    })
+}
+
+fn binary_odata_predicate(property: &str, operator: &str, literal: &Literal) -> FoldPredicate {
+    FoldPredicate {
+        language: "odata".to_string(),
+        text: format!("({property} {operator} {})", odata_literal(literal)),
+        params: Vec::new(),
+    }
+}
+
+fn odata_list_predicate(
+    property: &str,
+    operator: Operator,
+    literal: &Literal,
+) -> Option<FoldPredicate> {
+    let Literal::List(values) = literal else {
+        return None;
+    };
+    if values.is_empty() {
+        return None;
+    }
+    let values = values
+        .iter()
+        .map(odata_literal)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let text = match operator {
+        Operator::In => format!("({property} in ({values}))"),
+        Operator::NotIn => format!("(not ({property} in ({values})))"),
+        _ => return None,
+    };
+    Some(FoldPredicate {
+        language: "odata".to_string(),
+        text,
+        params: Vec::new(),
+    })
+}
+
+fn odata_between_predicate(property: &str, literal: &Literal) -> Option<FoldPredicate> {
+    let Literal::Range { min, max } = literal else {
+        return None;
+    };
+    Some(FoldPredicate {
+        language: "odata".to_string(),
+        text: format!(
+            "(({property} ge {}) and ({property} le {}))",
+            odata_literal(min),
+            odata_literal(max)
+        ),
+        params: Vec::new(),
+    })
+}
+
+fn odata_string_function(
+    property: &str,
+    operator: Operator,
+    literal: &Literal,
+) -> Option<FoldPredicate> {
+    let Literal::String(value) = literal else {
+        return None;
+    };
+    let value = odata_quoted_string(value);
+    let function = match operator {
+        Operator::Contains => "contains",
+        Operator::StartsWith => "startswith",
+        Operator::EndsWith => "endswith",
+        _ => return None,
+    };
+    Some(FoldPredicate {
+        language: "odata".to_string(),
+        text: format!("({function}({property}, {value}))"),
+        params: Vec::new(),
+    })
+}
+
+fn odata_literal(literal: &Literal) -> String {
+    match literal {
+        Literal::String(value) => odata_quoted_string(value),
+        Literal::Number(value) => value.to_string(),
+        Literal::Bool(value) => value.to_string(),
+        Literal::Null => "null".to_string(),
+        Literal::List(values) => values
+            .iter()
+            .map(odata_literal)
+            .collect::<Vec<_>>()
+            .join(", "),
+        Literal::Range { min, max } => format!("{}, {}", odata_literal(min), odata_literal(max)),
+    }
+}
+
+fn odata_quoted_string(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+fn odata_property_path(column: &str) -> String {
+    column.replace('.', "/")
+}
+
+fn combine_fold_predicates(
+    kind: &str,
+    backend: FoldBackend,
+    predicates: Vec<FoldPredicate>,
+) -> FoldPredicate {
     let separator = match kind {
-        "or" => " OR ",
-        _ => " AND ",
+        "or" => backend.or(),
+        _ => backend.and(),
     };
     let mut params = Vec::new();
-    let sql = predicates
+    let text = predicates
         .into_iter()
         .map(|predicate| {
             params.extend(predicate.params);
-            predicate.sql
+            predicate.text
         })
         .collect::<Vec<_>>()
         .join(separator);
-    SqlitePredicate {
-        sql: format!("({sql})"),
+    FoldPredicate {
+        language: backend.language().to_string(),
+        text: format!("({text})"),
         params,
     }
 }
 
-fn unsupported_fold(path: &str, operator: Operator, reason: &str) -> FoldDiagnostic {
+fn unsupported_fold(
+    backend: FoldBackend,
+    path: &str,
+    operator: Operator,
+    reason: &str,
+) -> FoldDiagnostic {
     FoldDiagnostic {
-        kind: "unsupported_sqlite_fold".to_string(),
+        kind: format!("unsupported_{}_fold", backend.name()),
         message: reason.to_string(),
         path: Some(path.to_string()),
         operator: Some(operator),
@@ -1848,12 +2129,13 @@ mod tests {
         assert_eq!(plan.backend, "sqlite");
         assert_eq!(plan.source_count, 2);
         assert_eq!(plan.sources[0].source, "players");
+        assert_eq!(plan.sources[0].predicate.language, "sql");
         assert_eq!(
-            plan.sources[0].predicate.sql,
+            plan.sources[0].predicate.text,
             "((\"players\".\"position\" = ?))"
         );
         assert_eq!(plan.sources[1].source, "stats");
-        assert_eq!(plan.sources[1].predicate.sql, "((\"stats\".\"ppg\" >= ?))");
+        assert_eq!(plan.sources[1].predicate.text, "((\"stats\".\"ppg\" >= ?))");
         assert_eq!(plan.diagnostics[0].kind, "unsupported_sqlite_fold");
         assert_eq!(
             plan.residual
@@ -1883,6 +2165,42 @@ mod tests {
         assert_eq!(
             plan.residual.as_ref().map(|node| node.kind.as_str()),
             Some("any")
+        );
+    }
+
+    #[test]
+    fn odata_fold_plan_uses_odata_operators_and_functions() {
+        let mut catalog = FoldCatalog::new();
+        catalog
+            .insert_sqlite("player.position", ValueType::String, "players", "position")
+            .insert_sqlite("player.name", ValueType::String, "players", "name")
+            .insert_sqlite("stats.ppg", ValueType::Number, "stats", "ppg")
+            .insert_sqlite("stats.tags", ValueType::Array, "stats", "tags");
+        let expr = parse(
+            "player.position eq 'C' and player.name starts_with 'A' and stats.ppg between 0.8 and 1.2 and stats.tags has 'playoffs'",
+        )
+        .unwrap();
+        let plan = expr.plan_odata(&catalog).unwrap();
+
+        assert_eq!(plan.backend, "odata");
+        assert_eq!(plan.source_count, 2);
+        assert_eq!(plan.sources[0].source, "players");
+        assert_eq!(plan.sources[0].predicate.language, "odata");
+        assert_eq!(
+            plan.sources[0].predicate.text,
+            "((position eq 'C') and (startswith(name, 'A')))"
+        );
+        assert_eq!(
+            plan.sources[1].predicate.text,
+            "(((ppg ge 0.8) and (ppg le 1.2)))"
+        );
+        assert_eq!(plan.diagnostics[0].kind, "unsupported_odata_fold");
+        assert_eq!(
+            plan.residual
+                .as_ref()
+                .and_then(|node| node.field.as_ref())
+                .map(|field| field.path.as_str()),
+            Some("stats.tags")
         );
     }
 

@@ -32,6 +32,7 @@ domain semantics, and whether a folded plan is safe to execute.
 | Pulse | Title | Status | Outcome |
 |------:|-------|--------|---------|
 | 01 | SQLite fold plan | done | Added per-source SQLite predicate planning, residuals, CLI plan output, and a mock SQLite join proof. |
+| 02 | OData fold plan | done | Added OData predicate folding on the same per-source plan shape, including CLI output and residual diagnostics. |
 
 ## Validation gates
 
@@ -39,6 +40,7 @@ domain semantics, and whether a folded plan is safe to execute.
 - `cargo test`
 - `cargo clippy --workspace -- -D warnings`
 - `cargo run -p slice-cli -- plan --backend sqlite --catalog examples\icelines-sqlite-catalog.json --expr "..."`
+- `cargo run -p slice-cli -- plan --backend odata --catalog examples\icelines-odata-catalog.json --expr "..."`
 - `cargo run -p slice-mock-client`
 - `git diff --check`
 
@@ -46,7 +48,7 @@ domain semantics, and whether a folded plan is safe to execute.
 
 - SLICE emits a stable JSON fold plan with backend, source predicates,
   parameters, requirements, residual tree, and diagnostics.
-- SQLite is the first implemented backend target.
+- SQLite and OData are implemented backend targets.
 - Multi-source expressions can fold independent `and` branches to both sides of
   a join while leaving unsupported branches as residual local filters.
 - The mock client demonstrates an ICELINES-style SQLite join using folded
@@ -57,4 +59,4 @@ domain semantics, and whether a folded plan is safe to execute.
 - No database connections or query execution in `slice-core`.
 - No SQL join planning, table discovery, migrations, or ORM behavior in SLICE.
 - No product-specific ICELINES hockey semantics in SLICE.
-- No OData renderer until the fold plan shape is proven with SQLite.
+- No source execution or service-specific OData metadata discovery.

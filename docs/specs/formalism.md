@@ -248,11 +248,13 @@ the expression kernel while the CLI owns pipeline presentation.
 
 The query-folding wave adds the first backend planning layer. `slice-core`
 accepts a fold catalog that maps expression fields to source IDs and backend
-columns, then emits a `slice.fold.v1` plan with per-source SQLite predicates,
-bound parameters, requirements, residual expression trees, and fold diagnostics.
-Top-level `and` branches may fold to different sources so consumers can attach
-predicates to both sides of a join. Cross-source `or`, array/object containment,
-joins, execution, ranking, auth, and source-specific schema policy remain
+columns, then emits a `slice.fold.v1` plan with per-source predicates,
+parameters where the backend supports them, requirements, residual expression
+trees, and fold diagnostics. Pulse 01 proves SQLite folding. Pulse 02 adds OData
+filter folding with OData operators and string functions. Top-level `and`
+branches may fold to different sources so consumers can attach predicates to
+both sides of a join. Cross-source `or`, array/object containment, joins,
+execution, ranking, auth, and source-specific schema policy remain
 consumer-owned.
 
 This keeps SLICE low-layer while still making the hard-won ICELINES query

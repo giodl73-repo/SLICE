@@ -116,12 +116,15 @@ fn main() -> Result<()> {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum PlanBackend {
     Sqlite,
+    #[value(name = "odata")]
+    OData,
 }
 
 impl std::fmt::Display for PlanBackend {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PlanBackend::Sqlite => formatter.write_str("sqlite"),
+            PlanBackend::OData => formatter.write_str("odata"),
         }
     }
 }
@@ -233,6 +236,23 @@ fn run_plan(expr: &str, catalog: &PathBuf, backend: PlanBackend) -> Result<()> {
 
     match backend {
         PlanBackend::Sqlite => match parsed.plan_sqlite(&catalog) {
+            Ok(plan) => println!("{}", serde_json::to_string_pretty(&plan)?),
+            Err(error) => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&ExplainOutput {
+                        schema: "slice.cli.plan.v1",
+                        status: "error",
+                        explain: None,
+                        parse: None,
+                        requirements: None,
+                        diagnostic: Some(error.diagnostic()),
+                    })?
+                );
+                anyhow::bail!("SLICE expression fold planning failed for {backend}");
+            }
+        },
+        PlanBackend::OData => match parsed.plan_odata(&catalog) {
             Ok(plan) => println!("{}", serde_json::to_string_pretty(&plan)?),
             Err(error) => {
                 println!(
