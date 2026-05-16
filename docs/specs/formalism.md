@@ -209,5 +209,9 @@ The first local validation harness for this rule is `slice-mock-client`. It is
 not a product adapter; it is a repo-local guardrail that keeps representative
 consumer shapes in the test suite while the real adapters remain downstream.
 
+Pulse 03 adds the first path catalog API and numeric comparison operators. Full
+range/set/pattern predicates remain future work, but adapters can now reject
+unknown paths and obvious operator/type mismatches before evaluating rows.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.

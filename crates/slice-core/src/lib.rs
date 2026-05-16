@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum SliceError {
     #[error("expected {expected} at byte {offset}")]
     Expected {
@@ -14,6 +16,20 @@ pub enum SliceError {
     UnsupportedOperator { operator: String, offset: usize },
     #[error("trailing input at byte {offset}: {token}")]
     TrailingInput { token: String, offset: usize },
+    #[error("unknown field path: {path}")]
+    UnknownField { path: String },
+    #[error("operator {operator:?} is not valid for {path} ({value_type:?})")]
+    InvalidOperator {
+        path: String,
+        operator: Operator,
+        value_type: ValueType,
+    },
+    #[error("literal {literal:?} is not valid for {path} ({value_type:?})")]
+    InvalidLiteral {
+        path: String,
+        literal: Literal,
+        value_type: ValueType,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,6 +50,10 @@ pub enum Operator {
     Ne,
     Has,
     Contains,
+    Gt,
+    Ge,
+    Lt,
+    Le,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,8 +64,65 @@ pub enum Literal {
     Null,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueType {
+    String,
+    Number,
+    Bool,
+    Array,
+    Object,
+    Null,
+    Any,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FieldSpec {
+    value_type: ValueType,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FieldCatalog {
+    fields: BTreeMap<String, FieldSpec>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledExpr {
+    expr: Expr,
+}
+
 pub fn parse(source: &str) -> Result<Expr, SliceError> {
     Parser::new(source).parse()
+}
+
+pub fn compile(source: &str, catalog: &FieldCatalog) -> Result<CompiledExpr, SliceError> {
+    let expr = parse(source)?;
+    expr.validate(catalog)?;
+    Ok(CompiledExpr { expr })
+}
+
+impl FieldSpec {
+    pub fn new(value_type: ValueType) -> Self {
+        Self { value_type }
+    }
+
+    pub fn value_type(&self) -> ValueType {
+        self.value_type
+    }
+}
+
+impl FieldCatalog {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert(&mut self, path: impl Into<String>, value_type: ValueType) -> &mut Self {
+        self.fields.insert(path.into(), FieldSpec::new(value_type));
+        self
+    }
+
+    pub fn get(&self, path: &str) -> Option<&FieldSpec> {
+        self.fields.get(path)
+    }
 }
 
 impl Expr {
@@ -55,6 +132,23 @@ impl Expr {
 
     pub fn clauses(&self) -> &[Clause] {
         &self.clauses
+    }
+
+    pub fn validate(&self, catalog: &FieldCatalog) -> Result<(), SliceError> {
+        for clause in &self.clauses {
+            clause.validate(catalog)?;
+        }
+        Ok(())
+    }
+}
+
+impl CompiledExpr {
+    pub fn matches(&self, value: &Value) -> bool {
+        self.expr.matches(value)
+    }
+
+    pub fn expr(&self) -> &Expr {
+        &self.expr
     }
 }
 
@@ -80,7 +174,36 @@ impl Clause {
             Operator::Ne => !literal_eq(value, &self.literal),
             Operator::Has => value_has(value, &self.literal),
             Operator::Contains => value_contains(value, &self.literal),
+            Operator::Gt => numeric_compare(value, &self.literal, |left, right| left > right),
+            Operator::Ge => numeric_compare(value, &self.literal, |left, right| left >= right),
+            Operator::Lt => numeric_compare(value, &self.literal, |left, right| left < right),
+            Operator::Le => numeric_compare(value, &self.literal, |left, right| left <= right),
         }
+    }
+
+    fn validate(&self, catalog: &FieldCatalog) -> Result<(), SliceError> {
+        let path = self.path.join(".");
+        let Some(field) = catalog.get(&path) else {
+            return Err(SliceError::UnknownField { path });
+        };
+
+        if !operator_valid_for_type(self.op, field.value_type) {
+            return Err(SliceError::InvalidOperator {
+                path,
+                operator: self.op,
+                value_type: field.value_type,
+            });
+        }
+
+        if !literal_valid_for_type(&self.literal, field.value_type) {
+            return Err(SliceError::InvalidLiteral {
+                path,
+                literal: self.literal.clone(),
+                value_type: field.value_type,
+            });
+        }
+
+        Ok(())
     }
 }
 
@@ -131,6 +254,57 @@ fn value_contains(value: &Value, literal: &Literal) -> bool {
             _ => false,
         },
         _ => false,
+    }
+}
+
+fn numeric_compare(
+    value: &Value,
+    literal: &Literal,
+    compare: impl FnOnce(f64, f64) -> bool,
+) -> bool {
+    match (value.as_f64(), literal) {
+        (Some(left), Literal::Number(right)) => compare(left, *right),
+        _ => false,
+    }
+}
+
+fn operator_valid_for_type(operator: Operator, value_type: ValueType) -> bool {
+    match operator {
+        Operator::Eq | Operator::Ne => matches!(
+            value_type,
+            ValueType::String
+                | ValueType::Number
+                | ValueType::Bool
+                | ValueType::Null
+                | ValueType::Any
+        ),
+        Operator::Has => matches!(
+            value_type,
+            ValueType::Array | ValueType::Object | ValueType::String | ValueType::Any
+        ),
+        Operator::Contains => matches!(
+            value_type,
+            ValueType::Array | ValueType::Object | ValueType::String | ValueType::Any
+        ),
+        Operator::Gt | Operator::Ge | Operator::Lt | Operator::Le => {
+            matches!(value_type, ValueType::Number | ValueType::Any)
+        }
+    }
+}
+
+fn literal_valid_for_type(literal: &Literal, value_type: ValueType) -> bool {
+    if matches!(value_type, ValueType::Any) {
+        return true;
+    }
+
+    match literal {
+        Literal::String(_) => matches!(
+            value_type,
+            ValueType::String | ValueType::Array | ValueType::Object
+        ),
+        Literal::Number(_) => matches!(value_type, ValueType::Number),
+        Literal::Bool(_) => matches!(value_type, ValueType::Bool),
+        Literal::Null => matches!(value_type, ValueType::Null),
     }
 }
 
@@ -194,6 +368,10 @@ impl<'a> Parser<'a> {
             "ne" => Operator::Ne,
             "has" => Operator::Has,
             "contains" => Operator::Contains,
+            "gt" => Operator::Gt,
+            "ge" => Operator::Ge,
+            "lt" => Operator::Lt,
+            "le" => Operator::Le,
             operator => {
                 return Err(SliceError::UnsupportedOperator {
                     operator: operator.to_string(),
@@ -292,7 +470,16 @@ fn tokenize(source: &str) -> Vec<Token> {
         }
         let mut raw = String::from(ch);
         while let Some((_, next)) = chars.peek() {
-            if next.is_whitespace() || *next == '.' {
+            if next.is_whitespace() {
+                break;
+            }
+            if *next == '.' {
+                let decimal_point = raw.chars().all(|c| c.is_ascii_digit()) && !raw.contains('.');
+                if decimal_point {
+                    raw.push(*next);
+                    chars.next();
+                    continue;
+                }
                 break;
             }
             raw.push(*next);
@@ -355,6 +542,61 @@ mod tests {
         assert!(!expr.matches(&json!({
             "metadata": {"tags": ["context"], "status": "draft"}
         })));
+    }
+
+    #[test]
+    fn matches_numeric_comparison_clause() {
+        let expr = parse("stats.ppg ge 0.8").unwrap();
+
+        assert!(expr.matches(&json!({"stats": {"ppg": 0.82}})));
+        assert!(!expr.matches(&json!({"stats": {"ppg": 0.71}})));
+    }
+
+    #[test]
+    fn validates_against_field_catalog() {
+        let mut catalog = FieldCatalog::new();
+        catalog
+            .insert("metadata.tags", ValueType::Array)
+            .insert("metadata.status", ValueType::String)
+            .insert("stats.ppg", ValueType::Number);
+
+        let compiled =
+            compile("metadata.tags has 'context' and stats.ppg ge 0.8", &catalog).unwrap();
+
+        assert!(compiled.matches(&json!({
+            "metadata": {"tags": ["context"], "status": "ready"},
+            "stats": {"ppg": 0.82}
+        })));
+    }
+
+    #[test]
+    fn rejects_unknown_catalog_field() {
+        let catalog = FieldCatalog::new();
+        let err = compile("metadata.status eq 'ready'", &catalog).unwrap_err();
+
+        assert_eq!(
+            err,
+            SliceError::UnknownField {
+                path: "metadata.status".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_operator_for_catalog_type() {
+        let mut catalog = FieldCatalog::new();
+        catalog.insert("metadata.status", ValueType::String);
+
+        let err = compile("metadata.status ge 1", &catalog).unwrap_err();
+
+        assert_eq!(
+            err,
+            SliceError::InvalidOperator {
+                path: "metadata.status".to_string(),
+                operator: Operator::Ge,
+                value_type: ValueType::String
+            }
+        );
     }
 
     #[test]

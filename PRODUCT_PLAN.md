@@ -48,12 +48,14 @@ data requirements, ranking, rendering, and domain policy. See
    - Current local validation: `slice-mock-client` exercises Pebble-shaped,
      CROP-like, FLETCH-like, and ICELINES-like rows while keeping FLETCH folding
      in the client layer.
-3. **Diagnostics and planning** - improve parser spans, actionable diagnostics,
+3. **Typed catalogs** - add field catalogs and numeric comparisons so adapters
+   can validate paths and operator/type compatibility before evaluation.
+4. **Diagnostics and planning** - improve parser spans, actionable diagnostics,
    and reusable explain output for agents and CLIs.
-4. **ICELINES-shaped IR experiment** - prototype an adapter for simple
+5. **ICELINES-shaped IR experiment** - prototype an adapter for simple
    ICELINES bio/stat filters while keeping hockey commands, stat catalogs,
    windows, career aggregation, similarity search, and ranking in ICELINES.
-5. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
+6. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
 
 ## Non-goals
 

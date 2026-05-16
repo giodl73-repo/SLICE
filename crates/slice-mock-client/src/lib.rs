@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use serde_json::{json, Value};
+use slice_core::{FieldCatalog, ValueType};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct MockClientReport {
@@ -41,20 +42,24 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         "metadata.tags has 'context' and metadata.status eq 'ready'",
         pebble_rows(),
         "id",
+        pebble_catalog(),
     )?;
     let crop = select_ids(
         "metadata.tags has 'frontmatter' and metadata.status eq 'ready'",
         crop_rows(),
         "id",
+        crop_catalog(),
     )?;
     let fletch = select_fletch_partitions(
         "active eq true and dataset.id contains 'icelines'",
         fletch_partition_rows(),
+        fletch_catalog(),
     )?;
     let icelines = select_ids(
-        "player.position eq 'C' and player.nationality eq 'SWE'",
+        "player.position eq 'C' and player.nationality eq 'SWE' and stats.ppg ge 0.8",
         icelines_rows(),
         "player.id",
+        icelines_catalog(),
     )?;
 
     let passed = pebble.selected_ids == ["pebble:guide"]
@@ -78,9 +83,14 @@ pub fn run_mock_client() -> Result<MockClientReport> {
     })
 }
 
-fn select_ids(expr: &str, rows: Vec<Value>, id_path: &str) -> Result<SelectionReport> {
-    let selector =
-        slice_core::parse(expr).with_context(|| format!("failed to parse expression {expr:?}"))?;
+fn select_ids(
+    expr: &str,
+    rows: Vec<Value>,
+    id_path: &str,
+    catalog: FieldCatalog,
+) -> Result<SelectionReport> {
+    let selector = slice_core::compile(expr, &catalog)
+        .with_context(|| format!("failed to compile expression {expr:?}"))?;
     let input_count = rows.len();
     let id_segments = split_path(id_path);
     let selected_ids = rows
@@ -96,9 +106,13 @@ fn select_ids(expr: &str, rows: Vec<Value>, id_path: &str) -> Result<SelectionRe
     })
 }
 
-fn select_fletch_partitions(expr: &str, rows: Vec<Value>) -> Result<FletchSelectionReport> {
-    let selector =
-        slice_core::parse(expr).with_context(|| format!("failed to parse expression {expr:?}"))?;
+fn select_fletch_partitions(
+    expr: &str,
+    rows: Vec<Value>,
+    catalog: FieldCatalog,
+) -> Result<FletchSelectionReport> {
+    let selector = slice_core::compile(expr, &catalog)
+        .with_context(|| format!("failed to compile expression {expr:?}"))?;
     let input_count = rows.len();
     let selected = rows
         .into_iter()
@@ -153,6 +167,39 @@ fn string_path(row: &Value, path: &[String]) -> Result<String> {
         .as_str()
         .map(str::to_string)
         .with_context(|| format!("path {:?} is not a string in {row}", path))
+}
+
+fn pebble_catalog() -> FieldCatalog {
+    let mut catalog = FieldCatalog::new();
+    catalog
+        .insert("metadata.tags", ValueType::Array)
+        .insert("metadata.status", ValueType::String);
+    catalog
+}
+
+fn crop_catalog() -> FieldCatalog {
+    let mut catalog = FieldCatalog::new();
+    catalog
+        .insert("metadata.tags", ValueType::Array)
+        .insert("metadata.status", ValueType::String);
+    catalog
+}
+
+fn fletch_catalog() -> FieldCatalog {
+    let mut catalog = FieldCatalog::new();
+    catalog
+        .insert("active", ValueType::Bool)
+        .insert("dataset.id", ValueType::String);
+    catalog
+}
+
+fn icelines_catalog() -> FieldCatalog {
+    let mut catalog = FieldCatalog::new();
+    catalog
+        .insert("player.position", ValueType::String)
+        .insert("player.nationality", ValueType::String)
+        .insert("stats.ppg", ValueType::Number);
+    catalog
 }
 
 fn pebble_rows() -> Vec<Value> {

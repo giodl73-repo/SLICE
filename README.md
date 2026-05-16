@@ -17,9 +17,12 @@ The first contract is intentionally small:
 
 - dotted field paths, such as `metadata.status`;
 - equality and inequality: `field eq 'value'`, `field ne 'value'`;
+- numeric comparisons: `field gt 1`, `field ge 1`, `field lt 1`,
+  `field le 1`;
 - containment: `field has 'value'` for arrays, strings, and object keys;
 - substring/object membership: `field contains 'value'`;
-- conjunctions with `and`.
+- conjunctions with `and`;
+- optional typed field catalogs before evaluation.
 
 ```bash
 slice eval --expr "metadata.tags has 'context' and metadata.status eq 'ready'" --input examples/pebble.json
@@ -52,6 +55,12 @@ let expr = slice_core::parse("metadata.status eq 'ready'")?;
 let ok = expr.matches(&serde_json::json!({
     "metadata": { "status": "ready" }
 }));
+
+let mut catalog = slice_core::FieldCatalog::new();
+catalog
+    .insert("metadata.status", slice_core::ValueType::String)
+    .insert("stats.ppg", slice_core::ValueType::Number);
+let selector = slice_core::compile("metadata.status eq 'ready' and stats.ppg ge 0.8", &catalog)?;
 ```
 
 ## Non-goals
