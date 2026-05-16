@@ -78,6 +78,18 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      selector tests for simple player position, nationality, and stat row
      filters.
 
+6. **TRACKER Markdown table selectors**
+   - Status: CLI/tool adoption in pulse 18; `slice eval --markdown-table`
+     selects rows from TRACKER and wave Markdown tables.
+   - Target: repo planning and dependency-tracker rows that are already
+     represented as Markdown tables.
+   - SLICE owns: table-row projection, selector parsing, and row predicate
+     evaluation.
+   - TRACKER keeps: tracker file layout, dependency taxonomy, status meanings,
+     and planning policy.
+   - Gate: a real TRACKER table can be selected from the CLI and emitted as
+     JSONL rows without requiring TRACKER-specific code.
+
 ## Readiness checklist
 
 - A consumer-owned field catalog maps every supported path to a `ValueType`.

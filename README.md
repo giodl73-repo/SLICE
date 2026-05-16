@@ -22,10 +22,17 @@ The first contract is intentionally small:
 - containment: `field has 'value'` for arrays, strings, and object keys;
 - substring/object membership: `field contains 'value'`;
 - conjunctions with `and`;
-- optional typed field catalogs before evaluation.
+- optional typed field catalogs before evaluation;
+- CLI adapters for JSON arrays, JSONL rows, and Markdown tables.
 
 ```bash
 slice eval --expr "metadata.tags has 'context' and metadata.status eq 'ready'" --input examples/pebble.json
+```
+
+Markdown planning tables can be selected directly and emitted as JSONL rows:
+
+```bash
+slice eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
 ```
 
 ## Formalism
@@ -95,6 +102,7 @@ kind, message, byte offset, and catalog/type details when available.
 cargo fmt --check
 cargo test
 cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/pebble.json
+cargo run -p slice-cli -- eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
 cargo run -p slice-mock-client
 ```
 

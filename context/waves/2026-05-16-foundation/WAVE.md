@@ -33,6 +33,7 @@ new predicate language.
 | 15 | PROOF artifact runtime selectors | done | PROOF added a SLICE-backed artifact manifest selector helper over prepared compile report rows. |
 | 16 | FLETCH row runtime selectors | done | FLETCH added SLICE-backed helpers for cache-index and active-partition rows while keeping fetch/cache and quiver policy local. |
 | 17 | ICELINES prepared-row runtime selectors | done | ICELINES added SLICE-backed helpers for prepared player bio/stat rows while keeping hockey query semantics local. |
+| 18 | Markdown table selectors | done | `slice eval` can select Markdown table rows as JSONL, giving TRACKER and wave docs a shared planning selector path. |
 
 ## Success criteria
 

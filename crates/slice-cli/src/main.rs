@@ -14,31 +14,51 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Evaluate an expression over JSON or newline-delimited JSON input.
+    /// Evaluate an expression over JSON, JSONL, or Markdown table input.
     Eval {
         /// SLICE expression, for example: metadata.tags has 'context'
         #[arg(long)]
         expr: String,
-        /// JSON or JSONL input file.
+        /// JSON, JSONL, or Markdown input file.
         #[arg(long)]
         input: PathBuf,
         /// Treat the input as newline-delimited JSON.
         #[arg(long)]
         jsonl: bool,
+        /// Treat the input as Markdown tables and emit matching rows as JSONL.
+        #[arg(long)]
+        markdown_table: bool,
     },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Eval { expr, input, jsonl } => run_eval(&expr, &input, jsonl),
+        Command::Eval {
+            expr,
+            input,
+            jsonl,
+            markdown_table,
+        } => run_eval(&expr, &input, jsonl, markdown_table),
     }
 }
 
-fn run_eval(expr: &str, input: &PathBuf, jsonl: bool) -> Result<()> {
+fn run_eval(expr: &str, input: &PathBuf, jsonl: bool, markdown_table: bool) -> Result<()> {
+    if jsonl && markdown_table {
+        anyhow::bail!("--jsonl and --markdown-table are mutually exclusive");
+    }
     let expr = slice_core::parse(expr).context("failed to parse SLICE expression")?;
     let content = fs::read_to_string(input)
         .with_context(|| format!("failed to read input {}", input.display()))?;
+
+    if markdown_table {
+        for row in markdown_table_rows(&content) {
+            if expr.matches(&row) {
+                println!("{}", serde_json::to_string(&row)?);
+            }
+        }
+        return Ok(());
+    }
 
     if jsonl {
         for line in content.lines().filter(|line| !line.trim().is_empty()) {
@@ -66,4 +86,138 @@ fn run_eval(expr: &str, input: &PathBuf, jsonl: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn markdown_table_rows(content: &str) -> Vec<Value> {
+    let lines = content.lines().collect::<Vec<_>>();
+    let mut rows = Vec::new();
+    let mut index = 0usize;
+    while index + 1 < lines.len() {
+        if !is_table_line(lines[index]) || !is_separator_line(lines[index + 1]) {
+            index += 1;
+            continue;
+        }
+
+        let headers = split_table_row(lines[index])
+            .into_iter()
+            .map(normalize_header)
+            .collect::<Vec<_>>();
+        index += 2;
+
+        while index < lines.len() && is_table_line(lines[index]) {
+            let cells = split_table_row(lines[index]);
+            let mut object = serde_json::Map::new();
+            for (header, cell) in headers.iter().zip(cells.iter()) {
+                object.insert(header.clone(), parse_markdown_cell(cell));
+            }
+            rows.push(Value::Object(object));
+            index += 1;
+        }
+    }
+    rows
+}
+
+fn is_table_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with('|') && trimmed.ends_with('|') && trimmed.matches('|').count() >= 2
+}
+
+fn is_separator_line(line: &str) -> bool {
+    if !is_table_line(line) {
+        return false;
+    }
+    split_table_row(line).into_iter().all(|cell| {
+        let trimmed = cell.trim();
+        !trimmed.is_empty()
+            && trimmed
+                .chars()
+                .all(|character| matches!(character, '-' | ':' | ' '))
+            && trimmed.chars().any(|character| character == '-')
+    })
+}
+
+fn split_table_row(line: &str) -> Vec<String> {
+    line.trim()
+        .trim_matches('|')
+        .split('|')
+        .map(|cell| cell.trim().to_string())
+        .collect()
+}
+
+fn normalize_header(header: String) -> String {
+    let mut normalized = String::new();
+    let mut previous_was_separator = false;
+    for character in header.trim().chars() {
+        if character.is_ascii_alphanumeric() {
+            normalized.push(character.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator {
+            normalized.push('_');
+            previous_was_separator = true;
+        }
+    }
+    normalized.trim_matches('_').to_string()
+}
+
+fn parse_markdown_cell(cell: &str) -> Value {
+    let trimmed = cell.trim();
+    if trimmed.eq_ignore_ascii_case("true") {
+        return Value::Bool(true);
+    }
+    if trimmed.eq_ignore_ascii_case("false") {
+        return Value::Bool(false);
+    }
+    if trimmed.eq_ignore_ascii_case("null") || trimmed.eq_ignore_ascii_case("n/a") {
+        return Value::Null;
+    }
+    if let Ok(number) = trimmed.parse::<f64>() {
+        return serde_json::Number::from_f64(number)
+            .map(Value::Number)
+            .unwrap_or_else(|| Value::String(trimmed.to_string()));
+    }
+    Value::String(trimmed.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn markdown_table_rows_normalize_headers_and_cells() {
+        let rows = markdown_table_rows(
+            r#"
+| Consumer repo | Status | Runtime | Count |
+|---|---:|---|---:|
+| CROP | [x] | true | 2 |
+| TRACKER | [ ] | false | n/a |
+"#,
+        );
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["consumer_repo"], "CROP");
+        assert_eq!(rows[0]["status"], "[x]");
+        assert_eq!(rows[0]["runtime"], true);
+        assert_eq!(rows[0]["count"], 2.0);
+        assert_eq!(rows[1]["count"], Value::Null);
+    }
+
+    #[test]
+    fn markdown_table_rows_can_be_selected_with_slice() {
+        let rows = markdown_table_rows(
+            r#"
+| Repo | Status | Runtime |
+|---|---|---|
+| CROP | [x] | true |
+| TRACKER | [ ] | false |
+"#,
+        );
+        let expr = slice_core::parse("status eq '[x]' and runtime eq true").unwrap();
+        let selected = rows
+            .iter()
+            .filter(|row| expr.matches(row))
+            .map(|row| row["repo"].as_str().unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(selected, ["CROP"]);
+    }
 }

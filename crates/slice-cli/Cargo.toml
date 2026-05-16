@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "CLI for evaluating SLICE expressions over JSON and JSONL artifacts."
+description = "CLI for evaluating SLICE expressions over JSON, JSONL, and Markdown table artifacts."
 
 [[bin]]
 name = "slice"
