@@ -2,7 +2,7 @@
 wave: query-folding
 pulse: 04
 date: 2026-05-16
-status: todo
+status: done
 depends_on: ["query-folding/pulse-01", "query-folding/pulse-03"]
 governing_roles: ["SCHEMA", "SIGNAL", "BENCH"]
 ---
@@ -43,19 +43,19 @@ the pure `slice-core` boundary.
 
 ## Deliverables checklist
 
-- [ ] Add a SQLite runtime boundary outside `slice-core`.
-- [ ] Add a CLI command to inspect SQLite tables/columns and emit a draft
+- [x] Add a SQLite runtime boundary outside `slice-core`.
+- [x] Add a CLI command to inspect SQLite tables/columns and emit a draft
       SLICE fold catalog.
-- [ ] Add a CLI command or flag that combines catalog validation, fold planning,
+- [x] Add a CLI command or flag that combines catalog validation, fold planning,
       and read-only SQLite smoke execution.
-- [ ] Support consumer-supplied source maps for more than one source so
+- [x] Support consumer-supplied source maps for more than one source so
       independent predicates can be folded to both sides of a consumer-owned
       join.
-- [ ] Keep joins explicit: SLICE may accept a join contract for smoke execution,
+- [x] Keep joins explicit: SLICE may accept a join contract for smoke execution,
       but must not infer product joins from field names.
-- [ ] Add mock SQLite tests covering catalog generation, multi-source folding,
+- [x] Add mock SQLite tests covering catalog generation, multi-source folding,
       residual local filtering, and unsupported operator diagnostics.
-- [ ] Update README/formalism docs with the new boundary.
+- [x] Update README/formalism docs with the new boundary.
 
 ## Validation gates
 
@@ -79,4 +79,19 @@ the pure `slice-core` boundary.
 
 ## Evidence
 
-- Pending.
+- Added `slice-sqlite` as a separate crate so `slice-core` remains free of
+  SQLite/database dependencies.
+- Added `slice sqlite inspect --db ...` for table/column inspection and draft
+  fold-catalog emission.
+- Added `slice sqlite plan --db ... --catalog ... --expr ...` for catalog
+  validation, `slice.fold.v1` planning, and read-only per-source smoke queries.
+- Updated `slice-mock-client` to prove the runtime boundary against the
+  ICELINES-style in-memory SQLite fixture.
+- Validation passed:
+  - `cargo fmt --check`
+  - `cargo test`
+  - `cargo clippy --workspace -- -D warnings`
+  - `cargo run -p slice-cli -- sqlite inspect --db <fixture.db>`
+  - `cargo run -p slice-cli -- sqlite plan --db <fixture.db> --catalog examples\icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8"`
+  - `cargo run -p slice-mock-client`
+  - `git diff --check`

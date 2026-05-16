@@ -98,6 +98,16 @@ slice plan --backend sqlite --catalog examples/icelines-sqlite-catalog.json --ex
 slice plan --backend odata --catalog examples/icelines-odata-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
 ```
 
+SQLite-backed CLIs can also use the optional SQLite workbench commands. These
+commands stay outside `slice-core`: they inspect real database files, emit draft
+fold catalogs, validate consumer-supplied mappings, and run read-only per-source
+smoke queries for folded predicates.
+
+```bash
+slice sqlite inspect --db path\to\icelines.sqlite
+slice sqlite plan --db path\to\icelines.sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8"
+```
+
 ## Formalism
 
 SLICE is a typed selector pipeline: parse source syntax, normalize it, resolve
@@ -170,8 +180,9 @@ kind, message, byte offset, and catalog/type details when available.
 - SLICE does not fetch data, build corpora, or cache artifacts.
 - SLICE does not own CROP graph cuts, PEBBLE schema design, FLETCH manifests, or
   product-specific query surfaces.
-- SLICE does not execute SQL or infer joins; consumers own schemas, joins,
-  execution, auth, and ranking.
+- `slice-core` does not execute SQL or infer joins; the optional SQLite CLI layer
+  can run read-only inspection and per-source smoke queries, while consumers own
+  schemas, joins, execution, auth, and ranking.
 - SLICE is not a general programming language; it is a portable selector and
   expression kernel.
 
@@ -191,6 +202,8 @@ cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice
 cargo run -p slice-cli -- explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
 cargo run -p slice-cli -- plan --backend sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
 cargo run -p slice-cli -- plan --backend odata --catalog examples/icelines-odata-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
+cargo run -p slice-cli -- sqlite inspect --db path\to\icelines.sqlite
+cargo run -p slice-cli -- sqlite plan --db path\to\icelines.sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8"
 cargo run -p slice-mock-client
 ```
 

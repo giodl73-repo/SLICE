@@ -38,6 +38,24 @@ The invariant: `slice-core` can parse, type-check, explain, and evaluate these
 concepts without knowing hockey, graph cuts, Pebble schema policy, cache
 freshness, or Markdown rendering.
 
+## Optional SQLite workbench
+
+SQLite is a backend boundary, not a product boundary. SLICE can therefore offer
+an optional SQLite-facing crate and CLI commands without changing the
+`slice-core` invariant:
+
+| Layer | Owns |
+|---|---|
+| `slice-core` | Parse, validate, explain, evaluate, and plan folded predicates. |
+| `slice-sqlite` | Inspect SQLite tables/columns, emit draft fold catalogs, validate field-to-column mappings, and run read-only per-source smoke queries. |
+| Consumer CLI | Name logical fields, decide joins, enforce domain semantics, execute product queries, rank/page/cache results. |
+
+This keeps the reusable work in SLICE while avoiding an ORM or product query
+engine. For example, a CLI can map `player.position` to `players.position` and
+`stats.ppg` to `stats.ppg`; SLICE can prove both predicates fold and that those
+columns exist in a SQLite file. The CLI still decides whether and how `players`
+joins to `stats`, what a season means, and how results are displayed.
+
 ## Pass pipeline
 
 SLICE should evolve toward an explicit pass pipeline:

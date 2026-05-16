@@ -18,6 +18,7 @@ pub struct MockClientReport {
     pub fletch: FletchSelectionReport,
     pub icelines: SelectionReport,
     pub icelines_sqlite: SqliteFoldSelectionReport,
+    pub icelines_sqlite_runtime: SqliteRuntimeReport,
     pub passed: bool,
 }
 
@@ -57,6 +58,14 @@ pub struct SqliteFoldSelectionReport {
     pub selected_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct SqliteRuntimeReport {
+    pub table_count: usize,
+    pub draft_catalog_field_count: usize,
+    pub validation_valid: bool,
+    pub smoke_sources: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct QuiverCandidate {
     pub dataset_id: String,
@@ -93,6 +102,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         icelines_catalog(),
     )?;
     let icelines_sqlite = select_icelines_sqlite_folded()?;
+    let icelines_sqlite_runtime = inspect_icelines_sqlite_runtime()?;
 
     let passed = pebble.selected_ids == ["pebble:guide"]
         && crop.selected_ids == ["crop:unit:frontmatter"]
@@ -105,7 +115,9 @@ pub fn run_mock_client() -> Result<MockClientReport> {
                 cache_keys: vec!["cache:icelines:leaders:2026".to_string()],
             }]
         && icelines.selected_ids == ["847-mock-swe-c"]
-        && icelines_sqlite.selected_ids == ["847-mock-swe-c"];
+        && icelines_sqlite.selected_ids == ["847-mock-swe-c"]
+        && icelines_sqlite_runtime.validation_valid
+        && icelines_sqlite_runtime.smoke_sources == ["players", "stats"];
 
     Ok(MockClientReport {
         schema: "slice.mock-client.v1".to_string(),
@@ -115,6 +127,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         fletch,
         icelines,
         icelines_sqlite,
+        icelines_sqlite_runtime,
         passed,
     })
 }
@@ -267,6 +280,26 @@ fn select_icelines_sqlite_folded() -> Result<SqliteFoldSelectionReport> {
         plan,
         folded_candidate_count,
         selected_ids,
+    })
+}
+
+fn inspect_icelines_sqlite_runtime() -> Result<SqliteRuntimeReport> {
+    let expr = "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'";
+    let catalog = icelines_sqlite_fold_catalog();
+    let connection = open_mock_icelines_sqlite()?;
+    let inspect = slice_sqlite::inspect_connection(&connection)?;
+    let runtime_plan = slice_sqlite::plan_connection(&connection, &catalog, expr)?;
+    let smoke_sources = runtime_plan
+        .smoke
+        .iter()
+        .map(|query| query.source.clone())
+        .collect::<Vec<_>>();
+
+    Ok(SqliteRuntimeReport {
+        table_count: inspect.tables.len(),
+        draft_catalog_field_count: inspect.draft_catalog.fields.len(),
+        validation_valid: runtime_plan.validation.valid,
+        smoke_sources,
     })
 }
 

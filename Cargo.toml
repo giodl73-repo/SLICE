@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/slice-core",
+    "crates/slice-sqlite",
     "crates/slice-cli",
     "crates/slice-mock-client",
 ]

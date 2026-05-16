@@ -433,6 +433,10 @@ impl FoldCatalog {
         self.fields.get(path)
     }
 
+    pub fn fields(&self) -> impl Iterator<Item = (&str, &FoldFieldSpec)> {
+        self.fields.iter().map(|(path, spec)| (path.as_str(), spec))
+    }
+
     pub fn field_catalog(&self) -> FieldCatalog {
         let mut catalog = FieldCatalog::new();
         for (path, field) in &self.fields {

@@ -1,20 +1,15 @@
 [package]
-name = "slice-cli"
+name = "slice-sqlite"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "CLI for evaluating SLICE expressions over JSON, JSONL, and Markdown table artifacts."
-
-[[bin]]
-name = "slice"
-path = "src/main.rs"
+description = "Optional SQLite inspection and read-only smoke planning helpers for SLICE."
 
 [dependencies]
 anyhow.workspace = true
-clap.workspace = true
+rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 slice-core = { path = "../slice-core" }
-slice-sqlite = { path = "../slice-sqlite" }

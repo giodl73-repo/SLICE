@@ -317,6 +317,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slice-core",
+ "slice-sqlite",
 ]
 
 [[package]]
@@ -330,6 +331,18 @@ dependencies = [
 
 [[package]]
 name = "slice-mock-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "slice-core",
+ "slice-sqlite",
+]
+
+[[package]]
+name = "slice-sqlite"
 version = "0.1.0"
 dependencies = [
  "anyhow",

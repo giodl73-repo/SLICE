@@ -34,7 +34,7 @@ domain semantics, and whether a folded plan is safe to execute.
 | 01 | SQLite fold plan | done | Added per-source SQLite predicate planning, residuals, CLI plan output, and a mock SQLite join proof. |
 | 02 | OData fold plan | done | Added OData predicate folding on the same per-source plan shape, including CLI output and residual diagnostics. |
 | 03 | ICELINES fold adoption | done | ICELINES adopted prepared-player SQLite fold planning while keeping schema joins and execution local. |
-| 04 | SQLite CLI/runtime layer | todo | Add an optional SQLite-facing SLICE layer so CLIs can inspect databases, generate catalogs, plan folded predicates, and run safe read-only smoke queries without moving execution into `slice-core`. |
+| 04 | SQLite CLI/runtime layer | done | Added optional `slice-sqlite` and `slice sqlite inspect/plan` so CLIs can inspect databases, generate draft catalogs, validate mappings, and run read-only per-source smoke queries without moving execution into `slice-core`. |
 
 ## Validation gates
 

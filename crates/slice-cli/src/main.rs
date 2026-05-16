@@ -1,4 +1,7 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -35,6 +38,11 @@ enum Command {
         /// Backend target for folded predicates.
         #[arg(long, value_enum, default_value_t = PlanBackend::Sqlite)]
         backend: PlanBackend,
+    },
+    /// Inspect and smoke-plan against SQLite databases.
+    Sqlite {
+        #[command(subcommand)]
+        command: SqliteCommand,
     },
     /// Evaluate an expression over JSON, JSONL, or Markdown table input.
     Eval {
@@ -83,6 +91,10 @@ fn main() -> Result<()> {
             catalog,
             backend,
         } => run_plan(&expr, &catalog, backend),
+        Command::Sqlite { command } => match command {
+            SqliteCommand::Inspect { db } => run_sqlite_inspect(&db),
+            SqliteCommand::Plan { db, expr, catalog } => run_sqlite_plan(&db, &expr, &catalog),
+        },
         Command::Eval {
             expr,
             input,
@@ -111,6 +123,28 @@ fn main() -> Result<()> {
             },
         ),
     }
+}
+
+#[derive(Debug, Subcommand)]
+enum SqliteCommand {
+    /// Inspect tables/columns and emit a draft SLICE fold catalog.
+    Inspect {
+        /// SQLite database file to inspect.
+        #[arg(long)]
+        db: PathBuf,
+    },
+    /// Validate a fold catalog, plan SQLite predicates, and run read-only smoke queries.
+    Plan {
+        /// SQLite database file to inspect and smoke-test.
+        #[arg(long)]
+        db: PathBuf,
+        /// SLICE expression to plan.
+        #[arg(long)]
+        expr: String,
+        /// JSON fold catalog mapping field paths to type/source/column metadata.
+        #[arg(long)]
+        catalog: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -270,6 +304,21 @@ fn run_plan(expr: &str, catalog: &PathBuf, backend: PlanBackend) -> Result<()> {
             }
         },
     }
+    Ok(())
+}
+
+fn run_sqlite_inspect(db: &Path) -> Result<()> {
+    let report = slice_sqlite::inspect_database(db)?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}
+
+fn run_sqlite_plan(db: &Path, expr: &str, catalog: &PathBuf) -> Result<()> {
+    let content = fs::read_to_string(catalog)
+        .with_context(|| format!("failed to read catalog {}", catalog.display()))?;
+    let catalog = parse_fold_catalog(&content).context("failed to parse SLICE fold catalog")?;
+    let report = slice_sqlite::plan_database(db, &catalog, expr)?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
 
