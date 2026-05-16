@@ -36,6 +36,9 @@ consumer-owned requirements, evaluate over adapter-provided values, and explain
 the result. The detailed model is in
 [`docs/specs/formalism.md`](docs/specs/formalism.md).
 
+The first adoption path is documented in
+[`docs/plans/consumer-migration.md`](docs/plans/consumer-migration.md).
+
 ## Mock client
 
 `slice-mock-client` is the local downstream validation harness. It runs the

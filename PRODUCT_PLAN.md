@@ -59,6 +59,8 @@ data requirements, ranking, rendering, and domain policy. See
    ICELINES bio/stat filters while keeping hockey commands, stat catalogs,
    windows, career aggregation, similarity search, and ranking in ICELINES.
 7. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
+   The first candidate is CROP frontmatter-query parity; see
+   [`docs/plans/consumer-migration.md`](docs/plans/consumer-migration.md).
 
 ## Non-goals
 
