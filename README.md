@@ -19,11 +19,16 @@ The first contract is intentionally small:
 - equality and inequality: `field eq 'value'`, `field ne 'value'`;
 - numeric comparisons: `field gt 1`, `field ge 1`, `field lt 1`,
   `field le 1`;
+- ranges: `field between 1 and 10`;
 - membership: `field in ['CROP', 'PROOF']`, `field not in ['blocked']`;
 - null queries: `field is null`, `field is not null`;
 - containment: `field has 'value'` for arrays, strings, and object keys;
+- array/string quantifiers: `field has any ['runtime', 'selector']`,
+  `field has all ['slice', 'runtime']`;
 - substring/object membership: `field contains 'value'`;
-- conjunctions with `and`;
+- string prefixes and suffixes: `field starts_with 'docs/'`,
+  `field ends_with '.md'`;
+- boolean composition with `and`, `or`, `not`, and parentheses;
 - optional typed field catalogs before evaluation;
 - CLI adapters for JSON arrays, JSONL rows, and Markdown tables;
 - CLI projection with `--fields` for emitting only selected row fields.
@@ -36,6 +41,12 @@ Set and null operators keep repo/status queries compact:
 
 ```bash
 slice eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+```
+
+Boolean grouping supports OData-style row predicates:
+
+```bash
+slice eval --markdown-table --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 ```
 
 Markdown planning tables can be selected directly and emitted as JSONL rows:
@@ -120,6 +131,7 @@ cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input exam
 cargo run -p slice-cli -- eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
 cargo run -p slice-cli -- eval --markdown-table --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 cargo run -p slice-cli -- eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 cargo run -p slice-mock-client
 ```
 

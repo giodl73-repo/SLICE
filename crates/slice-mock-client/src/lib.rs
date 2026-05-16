@@ -196,11 +196,18 @@ fn crop_frontmatter_catalog(expr: &str) -> Result<FieldCatalog> {
         let path = clause.path().join(".");
         let value_type = match clause.op() {
             Operator::Has => ValueType::Any,
-            Operator::Eq | Operator::Ne | Operator::Contains | Operator::In | Operator::NotIn => {
-                ValueType::String
+            Operator::Eq
+            | Operator::Ne
+            | Operator::Contains
+            | Operator::In
+            | Operator::NotIn
+            | Operator::StartsWith
+            | Operator::EndsWith => ValueType::String,
+            Operator::Gt | Operator::Ge | Operator::Lt | Operator::Le | Operator::Between => {
+                ValueType::Any
             }
-            Operator::Gt | Operator::Ge | Operator::Lt | Operator::Le => ValueType::Any,
             Operator::IsNull | Operator::IsNotNull => ValueType::Any,
+            Operator::HasAny | Operator::HasAll => ValueType::Any,
         };
         catalog.insert(path, value_type);
     }

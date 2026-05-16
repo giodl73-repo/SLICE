@@ -211,9 +211,11 @@ consumer shapes in the test suite while the real adapters remain downstream.
 
 Pulse 03 adds the first path catalog API and numeric comparison operators.
 Pulse 20 adds set membership and null-query operators (`in`, `not in`,
-`is null`, and `is not null`). Full range and pattern predicates remain future
-work, but adapters can now reject unknown paths and obvious operator/type
-mismatches before evaluating rows.
+`is null`, and `is not null`). Pulse 21 adds OData-style boolean composition
+(`or`, unary `not`, and parentheses), numeric ranges (`between`), string prefix
+and suffix predicates, and array/string quantifiers (`has any`, `has all`).
+Pattern predicates remain future work, but adapters can now reject unknown paths
+and obvious operator/type mismatches before evaluating rows.
 
 Pulse 04 adds the first machine-readable explain report. It summarizes the
 resolved fields, value types, operators, and literals for a compiled selector.

@@ -36,6 +36,7 @@ new predicate language.
 | 18 | Markdown table selectors | done | `slice eval` can select Markdown table rows as JSONL, giving TRACKER and wave docs a shared planning selector path. |
 | 19 | CLI projection | done | `slice eval --fields` projects matching JSON, JSONL, and Markdown-table rows for scripts and planning reports. |
 | 20 | Membership and null operators | done | `slice-core` added `in`, `not in`, `is null`, and `is not null` for compact repo/status and sparse-row selectors. |
+| 21 | OData-style expression syntax | done | `slice-core` added `or`, unary `not`, parentheses, `between`, `starts_with`, `ends_with`, `has any`, and `has all`. |
 
 ## Success criteria
 

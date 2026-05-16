@@ -37,7 +37,15 @@ pub enum SliceError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
-    clauses: Vec<Clause>,
+    root: ExprNode,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ExprNode {
+    Clause(Clause),
+    All(Vec<ExprNode>),
+    Any(Vec<ExprNode>),
+    Not(Box<ExprNode>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,6 +73,11 @@ pub enum Operator {
     NotIn,
     IsNull,
     IsNotNull,
+    Between,
+    StartsWith,
+    EndsWith,
+    HasAny,
+    HasAll,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -75,6 +88,10 @@ pub enum Literal {
     Bool(bool),
     Null,
     List(Vec<Literal>),
+    Range {
+        min: Box<Literal>,
+        max: Box<Literal>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -308,15 +325,17 @@ impl FieldCatalog {
 
 impl Expr {
     pub fn matches(&self, value: &Value) -> bool {
-        self.clauses.iter().all(|clause| clause.matches(value))
+        self.root.matches(value)
     }
 
-    pub fn clauses(&self) -> &[Clause] {
-        &self.clauses
+    pub fn clauses(&self) -> Vec<&Clause> {
+        let mut clauses = Vec::new();
+        self.root.collect_clauses(&mut clauses);
+        clauses
     }
 
     pub fn validate(&self, catalog: &FieldCatalog) -> Result<(), SliceError> {
-        for clause in &self.clauses {
+        for clause in self.clauses() {
             clause.validate(catalog)?;
         }
         Ok(())
@@ -324,8 +343,8 @@ impl Expr {
 
     pub fn explain(&self, catalog: &FieldCatalog) -> Result<ExplainReport, SliceError> {
         let fields = self
-            .clauses
-            .iter()
+            .clauses()
+            .into_iter()
             .map(|clause| clause.explain(catalog))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(ExplainReport {
@@ -337,7 +356,7 @@ impl Expr {
 
     pub fn requirements(&self, catalog: &FieldCatalog) -> Result<RequirementReport, SliceError> {
         let mut fields = BTreeMap::<String, RequirementField>::new();
-        for clause in &self.clauses {
+        for clause in self.clauses() {
             let requirement = clause.requirement(catalog)?;
             fields
                 .entry(requirement.path.clone())
@@ -349,6 +368,29 @@ impl Expr {
             field_count: fields.len(),
             fields,
         })
+    }
+}
+
+impl ExprNode {
+    fn matches(&self, value: &Value) -> bool {
+        match self {
+            ExprNode::Clause(clause) => clause.matches(value),
+            ExprNode::All(children) => children.iter().all(|child| child.matches(value)),
+            ExprNode::Any(children) => children.iter().any(|child| child.matches(value)),
+            ExprNode::Not(child) => !child.matches(value),
+        }
+    }
+
+    fn collect_clauses<'a>(&'a self, clauses: &mut Vec<&'a Clause>) {
+        match self {
+            ExprNode::Clause(clause) => clauses.push(clause),
+            ExprNode::All(children) | ExprNode::Any(children) => {
+                for child in children {
+                    child.collect_clauses(clauses);
+                }
+            }
+            ExprNode::Not(child) => child.collect_clauses(clauses),
+        }
     }
 }
 
@@ -400,6 +442,11 @@ impl Clause {
             Operator::NotIn => !value_in(value, &self.literal),
             Operator::IsNull => matches!(value, Value::Null),
             Operator::IsNotNull => !matches!(value, Value::Null),
+            Operator::Between => value_between(value, &self.literal),
+            Operator::StartsWith => value_starts_with(value, &self.literal),
+            Operator::EndsWith => value_ends_with(value, &self.literal),
+            Operator::HasAny => value_has_any(value, &self.literal),
+            Operator::HasAll => value_has_all(value, &self.literal),
         }
     }
 
@@ -508,6 +555,20 @@ fn value_has(value: &Value, literal: &Literal) -> bool {
     }
 }
 
+fn value_has_any(value: &Value, literal: &Literal) -> bool {
+    match literal {
+        Literal::List(items) => items.iter().any(|item| value_has(value, item)),
+        _ => false,
+    }
+}
+
+fn value_has_all(value: &Value, literal: &Literal) -> bool {
+    match literal {
+        Literal::List(items) => items.iter().all(|item| value_has(value, item)),
+        _ => false,
+    }
+}
+
 fn value_contains(value: &Value, literal: &Literal) -> bool {
     match value {
         Value::Array(items) => items.iter().any(|item| literal_eq(item, literal)),
@@ -530,6 +591,28 @@ fn numeric_compare(
 ) -> bool {
     match (value.as_f64(), literal) {
         (Some(left), Literal::Number(right)) => compare(left, *right),
+        _ => false,
+    }
+}
+
+fn value_between(value: &Value, literal: &Literal) -> bool {
+    let Literal::Range { min, max } = literal else {
+        return false;
+    };
+    numeric_compare(value, min, |left, right| left >= right)
+        && numeric_compare(value, max, |left, right| left <= right)
+}
+
+fn value_starts_with(value: &Value, literal: &Literal) -> bool {
+    match (value, literal) {
+        (Value::String(left), Literal::String(right)) => left.starts_with(right),
+        _ => false,
+    }
+}
+
+fn value_ends_with(value: &Value, literal: &Literal) -> bool {
+    match (value, literal) {
+        (Value::String(left), Literal::String(right)) => left.ends_with(right),
         _ => false,
     }
 }
@@ -564,6 +647,14 @@ fn operator_valid_for_type(operator: Operator, value_type: ValueType) -> bool {
                 | ValueType::Any
         ),
         Operator::IsNull | Operator::IsNotNull => true,
+        Operator::Between => matches!(value_type, ValueType::Number | ValueType::Any),
+        Operator::StartsWith | Operator::EndsWith => {
+            matches!(value_type, ValueType::String | ValueType::Any)
+        }
+        Operator::HasAny | Operator::HasAll => matches!(
+            value_type,
+            ValueType::Array | ValueType::Object | ValueType::String | ValueType::Any
+        ),
     }
 }
 
@@ -581,6 +672,11 @@ fn all_operators() -> Vec<Operator> {
         Operator::NotIn,
         Operator::IsNull,
         Operator::IsNotNull,
+        Operator::Between,
+        Operator::StartsWith,
+        Operator::EndsWith,
+        Operator::HasAny,
+        Operator::HasAll,
     ]
 }
 
@@ -601,12 +697,15 @@ fn literal_valid_for_type(literal: &Literal, value_type: ValueType) -> bool {
             value_type,
             ValueType::String | ValueType::Array | ValueType::Object
         ),
-        Literal::Number(_) => matches!(value_type, ValueType::Number),
-        Literal::Bool(_) => matches!(value_type, ValueType::Bool),
-        Literal::Null => matches!(value_type, ValueType::Null),
+        Literal::Number(_) => matches!(value_type, ValueType::Number | ValueType::Array),
+        Literal::Bool(_) => matches!(value_type, ValueType::Bool | ValueType::Array),
+        Literal::Null => matches!(value_type, ValueType::Null | ValueType::Array),
         Literal::List(items) => items
             .iter()
             .all(|item| literal_valid_for_type(item, value_type)),
+        Literal::Range { min, max } => {
+            literal_valid_for_type(min, value_type) && literal_valid_for_type(max, value_type)
+        }
     }
 }
 
@@ -626,6 +725,8 @@ enum TokenKind {
     Dot,
     LeftBracket,
     RightBracket,
+    LeftParen,
+    RightParen,
     Comma,
 }
 
@@ -645,24 +746,55 @@ impl<'a> Parser<'a> {
     }
 
     fn parse(mut self) -> Result<Expr, SliceError> {
-        let mut clauses = vec![self.parse_clause()?];
-        while let Some(token) = self.peek() {
-            let TokenKind::Ident(word) = &token.kind else {
-                return Err(SliceError::TrailingInput {
-                    token: token_text(token),
-                    offset: token.offset,
-                });
-            };
-            if word != "and" {
-                return Err(SliceError::TrailingInput {
-                    token: word.clone(),
-                    offset: token.offset,
-                });
-            }
-            self.cursor += 1;
-            clauses.push(self.parse_clause()?);
+        let root = self.parse_or()?;
+        if let Some(token) = self.peek() {
+            return Err(SliceError::TrailingInput {
+                token: token_text(token),
+                offset: token.offset,
+            });
         }
-        Ok(Expr { clauses })
+        Ok(Expr { root })
+    }
+
+    fn parse_or(&mut self) -> Result<ExprNode, SliceError> {
+        let mut nodes = vec![self.parse_and()?];
+        while self.peek_ident("or") {
+            self.cursor += 1;
+            nodes.push(self.parse_and()?);
+        }
+        Ok(collapse_boolean(nodes, ExprNode::Any))
+    }
+
+    fn parse_and(&mut self) -> Result<ExprNode, SliceError> {
+        let mut nodes = vec![self.parse_unary()?];
+        while self.peek_ident("and") {
+            self.cursor += 1;
+            nodes.push(self.parse_unary()?);
+        }
+        Ok(collapse_boolean(nodes, ExprNode::All))
+    }
+
+    fn parse_unary(&mut self) -> Result<ExprNode, SliceError> {
+        if self.peek_ident("not") {
+            self.cursor += 1;
+            return Ok(ExprNode::Not(Box::new(self.parse_unary()?)));
+        }
+        self.parse_primary()
+    }
+
+    fn parse_primary(&mut self) -> Result<ExprNode, SliceError> {
+        if matches!(
+            self.peek().map(|token| &token.kind),
+            Some(TokenKind::LeftParen)
+        ) {
+            self.cursor += 1;
+            let node = self.parse_or()?;
+            self.expect_token("closing parenthesis", |kind| {
+                matches!(kind, TokenKind::RightParen)
+            })?;
+            return Ok(node);
+        }
+        Ok(ExprNode::Clause(self.parse_clause()?))
     }
 
     fn parse_clause(&mut self) -> Result<Clause, SliceError> {
@@ -671,12 +803,39 @@ impl<'a> Parser<'a> {
         let (op, literal, literal_offset) = match op_token.0.as_str() {
             "eq" => self.parse_standard_clause_literal(Operator::Eq)?,
             "ne" => self.parse_standard_clause_literal(Operator::Ne)?,
+            "has" if self.peek_ident("any") => {
+                self.cursor += 1;
+                let (literal, literal_offset) = self.parse_literal_list()?;
+                (Operator::HasAny, literal, literal_offset)
+            }
+            "has" if self.peek_ident("all") => {
+                self.cursor += 1;
+                let (literal, literal_offset) = self.parse_literal_list()?;
+                (Operator::HasAll, literal, literal_offset)
+            }
             "has" => self.parse_standard_clause_literal(Operator::Has)?,
             "contains" => self.parse_standard_clause_literal(Operator::Contains)?,
+            "starts_with" | "startswith" => {
+                self.parse_standard_clause_literal(Operator::StartsWith)?
+            }
+            "ends_with" | "endswith" => self.parse_standard_clause_literal(Operator::EndsWith)?,
             "gt" => self.parse_standard_clause_literal(Operator::Gt)?,
             "ge" => self.parse_standard_clause_literal(Operator::Ge)?,
             "lt" => self.parse_standard_clause_literal(Operator::Lt)?,
             "le" => self.parse_standard_clause_literal(Operator::Le)?,
+            "between" => {
+                let (min, literal_offset) = self.parse_literal()?;
+                self.expect_specific_ident("and")?;
+                let (max, _) = self.parse_literal()?;
+                (
+                    Operator::Between,
+                    Literal::Range {
+                        min: Box::new(min),
+                        max: Box::new(max),
+                    },
+                    literal_offset,
+                )
+            }
             "in" => {
                 let (literal, literal_offset) = self.parse_literal_list()?;
                 (Operator::In, literal, literal_offset)
@@ -839,6 +998,27 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn expect_token(
+        &mut self,
+        expected: &'static str,
+        predicate: impl FnOnce(&TokenKind) -> bool,
+    ) -> Result<Token, SliceError> {
+        let Some(token) = self.next() else {
+            return Err(SliceError::Expected {
+                expected,
+                offset: self.source.len(),
+            });
+        };
+        if predicate(&token.kind) {
+            Ok(token)
+        } else {
+            Err(SliceError::UnexpectedToken {
+                token: token_text(&token),
+                offset: token.offset,
+            })
+        }
+    }
+
     fn expect_ident(&mut self, expected: &'static str) -> Result<(String, usize), SliceError> {
         let Some(token) = self.next() else {
             return Err(SliceError::Expected {
@@ -859,10 +1039,28 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.cursor)
     }
 
+    fn peek_ident(&self, expected: &str) -> bool {
+        matches!(
+            self.peek().map(|token| &token.kind),
+            Some(TokenKind::Ident(value)) if value == expected
+        )
+    }
+
     fn next(&mut self) -> Option<Token> {
         let token = self.tokens.get(self.cursor).cloned();
         self.cursor += usize::from(token.is_some());
         token
+    }
+}
+
+fn collapse_boolean(
+    mut nodes: Vec<ExprNode>,
+    build: impl FnOnce(Vec<ExprNode>) -> ExprNode,
+) -> ExprNode {
+    if nodes.len() == 1 {
+        nodes.pop().expect("one node exists")
+    } else {
+        build(nodes)
     }
 }
 
@@ -895,6 +1093,20 @@ fn tokenize(source: &str) -> Vec<Token> {
             });
             continue;
         }
+        if ch == '(' {
+            tokens.push(Token {
+                kind: TokenKind::LeftParen,
+                offset,
+            });
+            continue;
+        }
+        if ch == ')' {
+            tokens.push(Token {
+                kind: TokenKind::RightParen,
+                offset,
+            });
+            continue;
+        }
         if ch == ',' {
             tokens.push(Token {
                 kind: TokenKind::Comma,
@@ -922,7 +1134,7 @@ fn tokenize(source: &str) -> Vec<Token> {
             if next.is_whitespace() {
                 break;
             }
-            if matches!(*next, '[' | ']' | ',') {
+            if matches!(*next, '[' | ']' | '(' | ')' | ',') {
                 break;
             }
             if *next == '.' {
@@ -962,6 +1174,8 @@ fn token_text(token: &Token) -> String {
         TokenKind::Dot => ".".to_string(),
         TokenKind::LeftBracket => "[".to_string(),
         TokenKind::RightBracket => "]".to_string(),
+        TokenKind::LeftParen => "(".to_string(),
+        TokenKind::RightParen => ")".to_string(),
         TokenKind::Comma => ",".to_string(),
     }
 }
@@ -1036,6 +1250,55 @@ mod tests {
         assert!(is_not_null.matches(&json!({"metadata": {"owner": "docs"}})));
         assert!(!is_not_null.matches(&json!({"metadata": {"owner": null}})));
         assert!(!is_not_null.matches(&json!({"metadata": {}})));
+    }
+
+    #[test]
+    fn matches_boolean_grouping_with_or_not_and_parentheses() {
+        let expr =
+            parse("(repo in ['CROP', 'PROOF'] or tracker eq '[x]') and not status eq 'blocked'")
+                .unwrap();
+
+        assert!(expr.matches(&json!({"repo": "CROP", "tracker": "[ ]", "status": "ready"})));
+        assert!(expr.matches(&json!({"repo": "TRACKER", "tracker": "[x]", "status": "ready"})));
+        assert!(!expr.matches(&json!({"repo": "CROP", "tracker": "[ ]", "status": "blocked"})));
+        assert!(!expr.matches(&json!({"repo": "PEBBLE", "tracker": "[ ]", "status": "ready"})));
+    }
+
+    #[test]
+    fn matches_range_string_and_array_quantifier_clauses() {
+        let expr = parse(
+            "priority between 2 and 4 and path starts_with 'docs/' and path ends_with '.md' and tags has all ['slice', 'runtime']",
+        )
+        .unwrap();
+
+        assert!(expr.matches(&json!({
+            "priority": 3,
+            "path": "docs/plans/runtime.md",
+            "tags": ["slice", "runtime", "tracker"]
+        })));
+        assert!(!expr.matches(&json!({
+            "priority": 5,
+            "path": "docs/plans/runtime.md",
+            "tags": ["slice", "runtime"]
+        })));
+        assert!(!expr.matches(&json!({
+            "priority": 3,
+            "path": "src/runtime.rs",
+            "tags": ["slice", "runtime"]
+        })));
+        assert!(!expr.matches(&json!({
+            "priority": 3,
+            "path": "docs/plans/runtime.md",
+            "tags": ["slice"]
+        })));
+    }
+
+    #[test]
+    fn matches_array_has_any_clause() {
+        let expr = parse("tags has any ['runtime', 'adoption']").unwrap();
+
+        assert!(expr.matches(&json!({"tags": ["slice", "adoption"]})));
+        assert!(!expr.matches(&json!({"tags": ["slice", "docs"]})));
     }
 
     #[test]
@@ -1119,6 +1382,10 @@ mod tests {
                 Operator::NotIn,
                 Operator::IsNull,
                 Operator::IsNotNull,
+                Operator::StartsWith,
+                Operator::EndsWith,
+                Operator::HasAny,
+                Operator::HasAll,
             ])
         );
     }
@@ -1129,19 +1396,23 @@ mod tests {
         catalog
             .insert("repo", ValueType::String)
             .insert("priority", ValueType::Number)
-            .insert("owner", ValueType::String);
+            .insert("owner", ValueType::String)
+            .insert("path", ValueType::String)
+            .insert("tags", ValueType::Array);
 
         let compiled = compile(
-            "repo in ['CROP', 'PROOF'] and priority not in [0, 99] and owner is not null",
+            "repo in ['CROP', 'PROOF'] and priority between 1 and 5 and owner is not null and path starts_with 'docs/' and tags has any ['runtime']",
             &catalog,
         )
         .unwrap();
 
-        assert_eq!(compiled.requirements().field_count, 3);
+        assert_eq!(compiled.requirements().field_count, 5);
         assert!(compiled.matches(&json!({
             "repo": "CROP",
             "priority": 2,
-            "owner": "docs"
+            "owner": "docs",
+            "path": "docs/runtime.md",
+            "tags": ["runtime"]
         })));
     }
 
