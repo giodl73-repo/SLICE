@@ -61,6 +61,10 @@ pub enum Operator {
     Ge,
     Lt,
     Le,
+    In,
+    NotIn,
+    IsNull,
+    IsNotNull,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -70,6 +74,7 @@ pub enum Literal {
     Number(f64),
     Bool(bool),
     Null,
+    List(Vec<Literal>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -391,6 +396,10 @@ impl Clause {
             Operator::Ge => numeric_compare(value, &self.literal, |left, right| left >= right),
             Operator::Lt => numeric_compare(value, &self.literal, |left, right| left < right),
             Operator::Le => numeric_compare(value, &self.literal, |left, right| left <= right),
+            Operator::In => value_in(value, &self.literal),
+            Operator::NotIn => !value_in(value, &self.literal),
+            Operator::IsNull => matches!(value, Value::Null),
+            Operator::IsNotNull => !matches!(value, Value::Null),
         }
     }
 
@@ -412,7 +421,9 @@ impl Clause {
             });
         }
 
-        if !literal_valid_for_type(&self.literal, field.value_type) {
+        if !matches!(self.op, Operator::IsNull | Operator::IsNotNull)
+            && !literal_valid_for_type(&self.literal, field.value_type)
+        {
             return Err(SliceError::InvalidLiteral {
                 path,
                 literal: self.literal.clone(),
@@ -471,6 +482,13 @@ fn literal_eq(value: &Value, literal: &Literal) -> bool {
         (Value::Number(left), Literal::Number(right)) => left.as_f64() == Some(*right),
         (Value::Bool(left), Literal::Bool(right)) => left == right,
         (Value::Null, Literal::Null) => true,
+        _ => false,
+    }
+}
+
+fn value_in(value: &Value, literal: &Literal) -> bool {
+    match literal {
+        Literal::List(items) => items.iter().any(|item| literal_eq(value, item)),
         _ => false,
     }
 }
@@ -537,6 +555,15 @@ fn operator_valid_for_type(operator: Operator, value_type: ValueType) -> bool {
         Operator::Gt | Operator::Ge | Operator::Lt | Operator::Le => {
             matches!(value_type, ValueType::Number | ValueType::Any)
         }
+        Operator::In | Operator::NotIn => matches!(
+            value_type,
+            ValueType::String
+                | ValueType::Number
+                | ValueType::Bool
+                | ValueType::Null
+                | ValueType::Any
+        ),
+        Operator::IsNull | Operator::IsNotNull => true,
     }
 }
 
@@ -550,6 +577,10 @@ fn all_operators() -> Vec<Operator> {
         Operator::Ge,
         Operator::Lt,
         Operator::Le,
+        Operator::In,
+        Operator::NotIn,
+        Operator::IsNull,
+        Operator::IsNotNull,
     ]
 }
 
@@ -573,6 +604,9 @@ fn literal_valid_for_type(literal: &Literal, value_type: ValueType) -> bool {
         Literal::Number(_) => matches!(value_type, ValueType::Number),
         Literal::Bool(_) => matches!(value_type, ValueType::Bool),
         Literal::Null => matches!(value_type, ValueType::Null),
+        Literal::List(items) => items
+            .iter()
+            .all(|item| literal_valid_for_type(item, value_type)),
     }
 }
 
@@ -590,6 +624,9 @@ enum TokenKind {
     Bool(bool),
     Null,
     Dot,
+    LeftBracket,
+    RightBracket,
+    Comma,
 }
 
 struct Parser<'a> {
@@ -631,15 +668,45 @@ impl<'a> Parser<'a> {
     fn parse_clause(&mut self) -> Result<Clause, SliceError> {
         let (path, path_offset) = self.parse_path()?;
         let op_token = self.expect_ident("operator")?;
-        let op = match op_token.0.as_str() {
-            "eq" => Operator::Eq,
-            "ne" => Operator::Ne,
-            "has" => Operator::Has,
-            "contains" => Operator::Contains,
-            "gt" => Operator::Gt,
-            "ge" => Operator::Ge,
-            "lt" => Operator::Lt,
-            "le" => Operator::Le,
+        let (op, literal, literal_offset) = match op_token.0.as_str() {
+            "eq" => self.parse_standard_clause_literal(Operator::Eq)?,
+            "ne" => self.parse_standard_clause_literal(Operator::Ne)?,
+            "has" => self.parse_standard_clause_literal(Operator::Has)?,
+            "contains" => self.parse_standard_clause_literal(Operator::Contains)?,
+            "gt" => self.parse_standard_clause_literal(Operator::Gt)?,
+            "ge" => self.parse_standard_clause_literal(Operator::Ge)?,
+            "lt" => self.parse_standard_clause_literal(Operator::Lt)?,
+            "le" => self.parse_standard_clause_literal(Operator::Le)?,
+            "in" => {
+                let (literal, literal_offset) = self.parse_literal_list()?;
+                (Operator::In, literal, literal_offset)
+            }
+            "not" => {
+                self.expect_specific_ident("in")?;
+                let (literal, literal_offset) = self.parse_literal_list()?;
+                (Operator::NotIn, literal, literal_offset)
+            }
+            "is" => {
+                let Some(next) = self.next() else {
+                    return Err(SliceError::Expected {
+                        expected: "null or not null",
+                        offset: self.source.len(),
+                    });
+                };
+                match next.kind {
+                    TokenKind::Null => (Operator::IsNull, Literal::Null, next.offset),
+                    TokenKind::Ident(word) if word == "not" => {
+                        let null_offset = self.expect_null()?;
+                        (Operator::IsNotNull, Literal::Null, null_offset)
+                    }
+                    _ => {
+                        return Err(SliceError::UnexpectedToken {
+                            token: token_text(&next),
+                            offset: next.offset,
+                        })
+                    }
+                }
+            }
             operator => {
                 return Err(SliceError::UnsupportedOperator {
                     operator: operator.to_string(),
@@ -647,7 +714,6 @@ impl<'a> Parser<'a> {
                 })
             }
         };
-        let (literal, literal_offset) = self.parse_literal()?;
         Ok(Clause {
             path,
             path_offset,
@@ -656,6 +722,14 @@ impl<'a> Parser<'a> {
             literal,
             literal_offset,
         })
+    }
+
+    fn parse_standard_clause_literal(
+        &mut self,
+        op: Operator,
+    ) -> Result<(Operator, Literal, usize), SliceError> {
+        let (literal, literal_offset) = self.parse_literal()?;
+        Ok((op, literal, literal_offset))
     }
 
     fn parse_path(&mut self) -> Result<(Vec<String>, usize), SliceError> {
@@ -681,6 +755,83 @@ impl<'a> Parser<'a> {
             TokenKind::Number(value) => Ok((Literal::Number(value), offset)),
             TokenKind::Bool(value) => Ok((Literal::Bool(value), offset)),
             TokenKind::Null => Ok((Literal::Null, offset)),
+            _ => Err(SliceError::UnexpectedToken {
+                token: token_text(&token),
+                offset: token.offset,
+            }),
+        }
+    }
+
+    fn parse_literal_list(&mut self) -> Result<(Literal, usize), SliceError> {
+        let Some(open) = self.next() else {
+            return Err(SliceError::Expected {
+                expected: "literal list",
+                offset: self.source.len(),
+            });
+        };
+        if !matches!(open.kind, TokenKind::LeftBracket) {
+            return Err(SliceError::UnexpectedToken {
+                token: token_text(&open),
+                offset: open.offset,
+            });
+        }
+
+        let mut items = Vec::new();
+        if matches!(
+            self.peek().map(|token| &token.kind),
+            Some(TokenKind::RightBracket)
+        ) {
+            let close = self.next().expect("peeked token must exist");
+            return Ok((Literal::List(items), close.offset));
+        }
+
+        loop {
+            let (literal, _) = self.parse_literal()?;
+            items.push(literal);
+            let Some(separator) = self.next() else {
+                return Err(SliceError::Expected {
+                    expected: "',' or ']'",
+                    offset: self.source.len(),
+                });
+            };
+            match separator.kind {
+                TokenKind::Comma => {}
+                TokenKind::RightBracket => break,
+                _ => {
+                    return Err(SliceError::UnexpectedToken {
+                        token: token_text(&separator),
+                        offset: separator.offset,
+                    })
+                }
+            }
+        }
+        Ok((Literal::List(items), open.offset))
+    }
+
+    fn expect_specific_ident(
+        &mut self,
+        expected: &'static str,
+    ) -> Result<(String, usize), SliceError> {
+        let token = self.expect_ident(expected)?;
+        if token.0 == expected {
+            Ok(token)
+        } else {
+            Err(SliceError::UnexpectedToken {
+                token: token.0,
+                offset: token.1,
+            })
+        }
+    }
+
+    fn expect_null(&mut self) -> Result<usize, SliceError> {
+        let Some(token) = self.next() else {
+            return Err(SliceError::Expected {
+                expected: "null",
+                offset: self.source.len(),
+            });
+        };
+        match token.kind {
+            TokenKind::Null => Ok(token.offset),
             _ => Err(SliceError::UnexpectedToken {
                 token: token_text(&token),
                 offset: token.offset,
@@ -730,6 +881,27 @@ fn tokenize(source: &str) -> Vec<Token> {
             });
             continue;
         }
+        if ch == '[' {
+            tokens.push(Token {
+                kind: TokenKind::LeftBracket,
+                offset,
+            });
+            continue;
+        }
+        if ch == ']' {
+            tokens.push(Token {
+                kind: TokenKind::RightBracket,
+                offset,
+            });
+            continue;
+        }
+        if ch == ',' {
+            tokens.push(Token {
+                kind: TokenKind::Comma,
+                offset,
+            });
+            continue;
+        }
         if ch == '\'' || ch == '"' {
             let quote = ch;
             let mut value = String::new();
@@ -748,6 +920,9 @@ fn tokenize(source: &str) -> Vec<Token> {
         let mut raw = String::from(ch);
         while let Some((_, next)) = chars.peek() {
             if next.is_whitespace() {
+                break;
+            }
+            if matches!(*next, '[' | ']' | ',') {
                 break;
             }
             if *next == '.' {
@@ -785,6 +960,9 @@ fn token_text(token: &Token) -> String {
         TokenKind::Bool(value) => value.to_string(),
         TokenKind::Null => "null".to_string(),
         TokenKind::Dot => ".".to_string(),
+        TokenKind::LeftBracket => "[".to_string(),
+        TokenKind::RightBracket => "]".to_string(),
+        TokenKind::Comma => ",".to_string(),
     }
 }
 
@@ -827,6 +1005,37 @@ mod tests {
 
         assert!(expr.matches(&json!({"stats": {"ppg": 0.82}})));
         assert!(!expr.matches(&json!({"stats": {"ppg": 0.71}})));
+    }
+
+    #[test]
+    fn matches_in_and_not_in_clauses() {
+        let expr =
+            parse("repo in ['CROP', 'PROOF'] and status not in ['blocked', 'stale']").unwrap();
+
+        assert!(expr.matches(&json!({"repo": "CROP", "status": "ready"})));
+        assert!(!expr.matches(&json!({"repo": "PEBBLE", "status": "ready"})));
+        assert!(!expr.matches(&json!({"repo": "PROOF", "status": "blocked"})));
+    }
+
+    #[test]
+    fn matches_numeric_and_bool_membership_clauses() {
+        let expr = parse("score in [1, 2.5] and active in [true]").unwrap();
+
+        assert!(expr.matches(&json!({"score": 2.5, "active": true})));
+        assert!(!expr.matches(&json!({"score": 3, "active": true})));
+        assert!(!expr.matches(&json!({"score": 1, "active": false})));
+    }
+
+    #[test]
+    fn matches_null_query_clauses() {
+        let is_null = parse("metadata.owner is null").unwrap();
+        let is_not_null = parse("metadata.owner is not null").unwrap();
+
+        assert!(is_null.matches(&json!({"metadata": {"owner": null}})));
+        assert!(!is_null.matches(&json!({"metadata": {"owner": "docs"}})));
+        assert!(is_not_null.matches(&json!({"metadata": {"owner": "docs"}})));
+        assert!(!is_not_null.matches(&json!({"metadata": {"owner": null}})));
+        assert!(!is_not_null.matches(&json!({"metadata": {}})));
     }
 
     #[test]
@@ -905,8 +1114,55 @@ mod tests {
                 Operator::Eq,
                 Operator::Ne,
                 Operator::Has,
-                Operator::Contains
+                Operator::Contains,
+                Operator::In,
+                Operator::NotIn,
+                Operator::IsNull,
+                Operator::IsNotNull,
             ])
+        );
+    }
+
+    #[test]
+    fn validates_membership_and_null_operators_against_catalog() {
+        let mut catalog = FieldCatalog::new();
+        catalog
+            .insert("repo", ValueType::String)
+            .insert("priority", ValueType::Number)
+            .insert("owner", ValueType::String);
+
+        let compiled = compile(
+            "repo in ['CROP', 'PROOF'] and priority not in [0, 99] and owner is not null",
+            &catalog,
+        )
+        .unwrap();
+
+        assert_eq!(compiled.requirements().field_count, 3);
+        assert!(compiled.matches(&json!({
+            "repo": "CROP",
+            "priority": 2,
+            "owner": "docs"
+        })));
+    }
+
+    #[test]
+    fn rejects_membership_literals_that_do_not_match_catalog_type() {
+        let mut catalog = FieldCatalog::new();
+        catalog.insert("repo", ValueType::String);
+
+        let err = compile("repo in ['CROP', 1]", &catalog).unwrap_err();
+
+        assert_eq!(
+            err,
+            SliceError::InvalidLiteral {
+                path: "repo".to_string(),
+                literal: Literal::List(vec![
+                    Literal::String("CROP".to_string()),
+                    Literal::Number(1.0)
+                ]),
+                value_type: ValueType::String,
+                offset: 8
+            }
         );
     }
 

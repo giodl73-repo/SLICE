@@ -19,6 +19,8 @@ The first contract is intentionally small:
 - equality and inequality: `field eq 'value'`, `field ne 'value'`;
 - numeric comparisons: `field gt 1`, `field ge 1`, `field lt 1`,
   `field le 1`;
+- membership: `field in ['CROP', 'PROOF']`, `field not in ['blocked']`;
+- null queries: `field is null`, `field is not null`;
 - containment: `field has 'value'` for arrays, strings, and object keys;
 - substring/object membership: `field contains 'value'`;
 - conjunctions with `and`;
@@ -28,6 +30,12 @@ The first contract is intentionally small:
 
 ```bash
 slice eval --expr "metadata.tags has 'context' and metadata.status eq 'ready'" --input examples/pebble.json
+```
+
+Set and null operators keep repo/status queries compact:
+
+```bash
+slice eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 ```
 
 Markdown planning tables can be selected directly and emitted as JSONL rows:
@@ -111,6 +119,7 @@ cargo test
 cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/pebble.json
 cargo run -p slice-cli -- eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
 cargo run -p slice-cli -- eval --markdown-table --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 cargo run -p slice-mock-client
 ```
 
