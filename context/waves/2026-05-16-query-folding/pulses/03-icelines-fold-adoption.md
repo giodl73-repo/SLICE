@@ -37,6 +37,7 @@ SLICE.
 - [x] Update ICELINES to a SLICE revision with fold planning.
 - [x] Add `prepared_player_sqlite_fold_catalog`.
 - [x] Add `plan_prepared_player_sqlite_selector`.
+- [x] Add simple `QueryPlan` to SLICE prepared-row expression/fold translation.
 - [x] Add tests showing player/stat predicates fold to separate sources.
 - [x] Update ICELINES and SLICE docs.
 
@@ -53,5 +54,5 @@ SLICE.
 
 ## Evidence
 
-- ICELINES query tests pass for prepared-row selection, requirements, and
-  SQLite fold planning.
+- ICELINES query tests pass for prepared-row selection, requirements, SQLite
+  fold planning, and simple QueryPlan-to-SLICE lowering.
