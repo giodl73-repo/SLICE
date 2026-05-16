@@ -55,7 +55,8 @@ data requirements, ranking, rendering, and domain policy. See
    depends on.
 5. **Diagnostics** - expose machine-readable diagnostic reports with byte
    offsets and catalog/type details for parser and validation failures.
-6. **Planning** - add reusable requirement output for agents and CLIs.
+6. **Requirement reports** - expose the deduplicated typed field list adapters
+   must materialize before evaluation.
 7. **ICELINES-shaped IR experiment** - prototype an adapter for simple
    ICELINES bio/stat filters while keeping hockey commands, stat catalogs,
    windows, career aggregation, similarity search, and ranking in ICELINES.

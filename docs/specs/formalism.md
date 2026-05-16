@@ -222,5 +222,10 @@ validation failures. SLICE reports byte offsets and typed error context;
 consumers still own display wording, remediation links, and compatibility
 policy.
 
+Pulse 07 adds requirement reports. A compiled selector now exposes the
+deduplicated typed field paths that an adapter must materialize before
+evaluation. This is not a fetch plan: consumers still own how those fields are
+loaded, cached, folded, or rendered.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.

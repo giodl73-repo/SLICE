@@ -65,10 +65,13 @@ catalog
     .insert("stats.ppg", slice_core::ValueType::Number);
 let selector = slice_core::compile("metadata.status eq 'ready' and stats.ppg ge 0.8", &catalog)?;
 let explain = selector.explain();
+let requirements = selector.requirements();
 ```
 
 `explain` is machine-readable, so downstream CLIs and agents can show which
 fields, operators, and typed literals a selector depends on.
+`requirements` is the deduplicated field list an adapter must materialize before
+evaluation.
 
 Errors also expose `diagnostic()` as `slice.diagnostic.v1`, including the error
 kind, message, byte offset, and catalog/type details when available.

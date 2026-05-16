@@ -98,6 +98,7 @@ pub struct FieldCatalog {
 pub struct CompiledExpr {
     expr: Expr,
     explain: ExplainReport,
+    requirements: RequirementReport,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -113,6 +114,19 @@ pub struct ExplainField {
     pub value_type: ValueType,
     pub operator: Operator,
     pub literal: Literal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RequirementReport {
+    pub schema: String,
+    pub field_count: usize,
+    pub fields: Vec<RequirementField>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RequirementField {
+    pub path: String,
+    pub value_type: ValueType,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -146,7 +160,12 @@ pub fn compile(source: &str, catalog: &FieldCatalog) -> Result<CompiledExpr, Sli
     let expr = parse(source)?;
     expr.validate(catalog)?;
     let explain = expr.explain(catalog)?;
-    Ok(CompiledExpr { expr, explain })
+    let requirements = expr.requirements(catalog)?;
+    Ok(CompiledExpr {
+        expr,
+        explain,
+        requirements,
+    })
 }
 
 impl SliceError {
@@ -310,6 +329,22 @@ impl Expr {
             fields,
         })
     }
+
+    pub fn requirements(&self, catalog: &FieldCatalog) -> Result<RequirementReport, SliceError> {
+        let mut fields = BTreeMap::<String, RequirementField>::new();
+        for clause in &self.clauses {
+            let requirement = clause.requirement(catalog)?;
+            fields
+                .entry(requirement.path.clone())
+                .or_insert(requirement);
+        }
+        let fields = fields.into_values().collect::<Vec<_>>();
+        Ok(RequirementReport {
+            schema: "slice.requirements.v1".to_string(),
+            field_count: fields.len(),
+            fields,
+        })
+    }
 }
 
 impl CompiledExpr {
@@ -323,6 +358,10 @@ impl CompiledExpr {
 
     pub fn explain(&self) -> &ExplainReport {
         &self.explain
+    }
+
+    pub fn requirements(&self) -> &RequirementReport {
+        &self.requirements
     }
 }
 
@@ -398,6 +437,20 @@ impl Clause {
             value_type: field.value_type,
             operator: self.op,
             literal: self.literal.clone(),
+        })
+    }
+
+    fn requirement(&self, catalog: &FieldCatalog) -> Result<RequirementField, SliceError> {
+        let path = self.path.join(".");
+        let Some(field) = catalog.get(&path) else {
+            return Err(SliceError::UnknownField {
+                path,
+                offset: self.path_offset,
+            });
+        };
+        Ok(RequirementField {
+            path,
+            value_type: field.value_type,
         })
     }
 }
@@ -790,6 +843,9 @@ mod tests {
         assert_eq!(compiled.explain().clause_count, 2);
         assert_eq!(compiled.explain().fields[1].path, "stats.ppg");
         assert_eq!(compiled.explain().fields[1].value_type, ValueType::Number);
+        assert_eq!(compiled.requirements().field_count, 2);
+        assert_eq!(compiled.requirements().fields[0].path, "metadata.tags");
+        assert_eq!(compiled.requirements().fields[1].path, "stats.ppg");
 
         assert!(compiled.matches(&json!({
             "metadata": {"tags": ["context"], "status": "ready"},
