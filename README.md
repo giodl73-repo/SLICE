@@ -25,6 +25,14 @@ The first contract is intentionally small:
 slice eval --expr "metadata.tags has 'context' and metadata.status eq 'ready'" --input examples/pebble.json
 ```
 
+## Formalism
+
+SLICE is a typed selector pipeline: parse source syntax, normalize it, resolve
+paths through a consumer-owned field catalog, type-check predicates, plan any
+consumer-owned requirements, evaluate over adapter-provided values, and explain
+the result. The detailed model is in
+[`docs/specs/formalism.md`](docs/specs/formalism.md).
+
 ## Rust
 
 ```rust

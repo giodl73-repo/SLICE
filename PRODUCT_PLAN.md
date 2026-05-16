@@ -13,6 +13,17 @@ SLICE is a shared dependency below FLETCH, CROP, PEBBLE, PROOF, and domain CLIs.
 It should depend only on stable parsing/evaluation crates and common data types.
 Consumers adapt their own records into SLICE values.
 
+## Formalism
+
+SLICE's formalism is a typed selector pipeline:
+
+`surface syntax -> parsed expression -> normalized expression -> resolved typed IR -> planned requirements -> reusable evaluator -> explain output`
+
+The core owns boolean composition, paths, typed predicates, diagnostics, and
+evaluation over adapter-provided values. Consumers own field catalogs, aliases,
+data requirements, ranking, rendering, and domain policy. See
+[`docs/specs/formalism.md`](docs/specs/formalism.md).
+
 ## Consumer points of view
 
 - **CROP:** replace local metadata/frontmatter predicate parsing only after
@@ -34,7 +45,10 @@ Consumers adapt their own records into SLICE values.
    units/views, and FLETCH manifests without pulling product policy into core.
 3. **Diagnostics and planning** - improve parser spans, actionable diagnostics,
    and reusable explain output for agents and CLIs.
-4. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
+4. **ICELINES-shaped IR experiment** - prototype an adapter for simple
+   ICELINES bio/stat filters while keeping hockey commands, stat catalogs,
+   windows, career aggregation, similarity search, and ranking in ICELINES.
+5. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
 
 ## Non-goals
 
