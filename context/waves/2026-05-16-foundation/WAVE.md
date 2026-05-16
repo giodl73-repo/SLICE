@@ -39,6 +39,7 @@ new predicate language.
 | 21 | OData-style expression syntax | done | `slice-core` added `or`, unary `not`, parentheses, `between`, `starts_with`, `ends_with`, `has any`, and `has all`. |
 | 22 | CLI catalog loading | done | `slice eval --catalog` type-checks JSON, JSONL, and Markdown-table selectors against reusable field catalogs. |
 | 23 | CLI result shaping | done | `slice eval` added sort, descending order, offset, limit, and count for OData-style query pipelines. |
+| 24 | Expression-tree explain | done | `slice-core` and `slice explain` now expose parse/typed expression trees, requirements, and diagnostic JSON before row evaluation. |
 
 ## Success criteria
 

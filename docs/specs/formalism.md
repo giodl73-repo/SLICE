@@ -219,7 +219,9 @@ and obvious operator/type mismatches before evaluating rows.
 
 Pulse 04 adds the first machine-readable explain report. It summarizes the
 resolved fields, value types, operators, and literals for a compiled selector.
-Requirement planning is still consumer-owned and remains future work.
+Pulse 24 extends explain into a nested expression tree and exposes parse-only
+explain from `slice-core` and `slice explain`, so agents can inspect grouping,
+negation, requirements, and typed diagnostics before evaluating rows.
 
 Pulse 06 adds machine-readable diagnostic reports for parser and catalog
 validation failures. SLICE reports byte offsets and typed error context;

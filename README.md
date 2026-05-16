@@ -31,6 +31,7 @@ The first contract is intentionally small:
 - boolean composition with `and`, `or`, `not`, and parentheses;
 - optional typed field catalogs before evaluation, including CLI `--catalog`
   JSON files;
+- machine-readable parse and typed explain reports with expression trees;
 - CLI adapters for JSON arrays, JSONL rows, and Markdown tables;
 - CLI projection with `--fields` for emitting only selected row fields;
 - CLI result shaping with `--sort-by`, `--desc`, `--offset`, `--limit`, and
@@ -76,6 +77,13 @@ Use result-shaping flags for OData-style planning queries:
 slice eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
 ```
 
+Use `slice explain` to inspect parse trees, typed fields, requirements, and
+diagnostics without scanning input rows:
+
+```bash
+slice explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
+```
+
 ## Formalism
 
 SLICE is a typed selector pipeline: parse source syntax, normalize it, resolve
@@ -119,10 +127,11 @@ catalog
 let selector = slice_core::compile("metadata.status eq 'ready' and stats.ppg ge 0.8", &catalog)?;
 let explain = selector.explain();
 let requirements = selector.requirements();
+let _parse_explain = slice_core::parse("metadata.status eq 'ready'")?.explain_parse();
 ```
 
 `explain` is machine-readable, so downstream CLIs and agents can show which
-fields, operators, and typed literals a selector depends on.
+fields, operators, typed literals, and boolean tree a selector depends on.
 `requirements` is the deduplicated field list an adapter must materialize before
 evaluation.
 
@@ -150,6 +159,7 @@ cargo run -p slice-cli -- eval --markdown-table --expr "(slice_layer in ['Predic
 cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
 cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --count
+cargo run -p slice-cli -- explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
 cargo run -p slice-mock-client
 ```
 

@@ -2,6 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use serde::Serialize;
 use serde_json::Value;
 
 #[derive(Debug, Parser)]
@@ -14,6 +15,15 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Explain a SLICE expression as machine-readable JSON.
+    Explain {
+        /// SLICE expression to explain.
+        #[arg(long)]
+        expr: String,
+        /// Optional JSON catalog for typed validation and requirements.
+        #[arg(long)]
+        catalog: Option<PathBuf>,
+    },
     /// Evaluate an expression over JSON, JSONL, or Markdown table input.
     Eval {
         /// SLICE expression, for example: metadata.tags has 'context'
@@ -55,6 +65,7 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Command::Explain { expr, catalog } => run_explain(&expr, catalog.as_ref()),
         Command::Eval {
             expr,
             input,
@@ -83,6 +94,89 @@ fn main() -> Result<()> {
             },
         ),
     }
+}
+
+#[derive(Debug, Serialize)]
+struct ExplainOutput<'a> {
+    schema: &'static str,
+    status: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    explain: Option<&'a slice_core::ExplainReport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parse: Option<slice_core::ParsedExplainReport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    requirements: Option<&'a slice_core::RequirementReport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    diagnostic: Option<slice_core::DiagnosticReport>,
+}
+
+fn run_explain(expr: &str, catalog: Option<&PathBuf>) -> Result<()> {
+    if let Some(catalog_path) = catalog {
+        let content = fs::read_to_string(catalog_path)
+            .with_context(|| format!("failed to read catalog {}", catalog_path.display()))?;
+        let catalog = parse_catalog(&content).context("failed to parse SLICE catalog")?;
+        match slice_core::compile(expr, &catalog) {
+            Ok(compiled) => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&ExplainOutput {
+                        schema: "slice.cli.explain.v1",
+                        status: "ok",
+                        explain: Some(compiled.explain()),
+                        parse: None,
+                        requirements: Some(compiled.requirements()),
+                        diagnostic: None,
+                    })?
+                );
+            }
+            Err(error) => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&ExplainOutput {
+                        schema: "slice.cli.explain.v1",
+                        status: "error",
+                        explain: None,
+                        parse: None,
+                        requirements: None,
+                        diagnostic: Some(error.diagnostic()),
+                    })?
+                );
+                anyhow::bail!("SLICE expression validation failed");
+            }
+        }
+        return Ok(());
+    }
+
+    match slice_core::parse(expr) {
+        Ok(parsed) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&ExplainOutput {
+                    schema: "slice.cli.explain.v1",
+                    status: "ok",
+                    explain: None,
+                    parse: Some(parsed.explain_parse()),
+                    requirements: None,
+                    diagnostic: None,
+                })?
+            );
+        }
+        Err(error) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&ExplainOutput {
+                    schema: "slice.cli.explain.v1",
+                    status: "error",
+                    explain: None,
+                    parse: None,
+                    requirements: None,
+                    diagnostic: Some(error.diagnostic()),
+                })?
+            );
+            anyhow::bail!("SLICE expression parse failed");
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -171,7 +265,7 @@ fn emit_rows(mut rows: Vec<Value>, fields: &[String], options: &ResultOptions) -
 
 enum Selector {
     Parsed(slice_core::Expr),
-    Compiled(slice_core::CompiledExpr),
+    Compiled(Box<slice_core::CompiledExpr>),
 }
 
 impl Selector {
@@ -193,6 +287,7 @@ fn load_selector(expr: &str, catalog: Option<&PathBuf>) -> Result<Selector> {
         .with_context(|| format!("failed to read catalog {}", catalog_path.display()))?;
     let catalog = parse_catalog(&content).context("failed to parse SLICE catalog")?;
     slice_core::compile(expr, &catalog)
+        .map(Box::new)
         .map(Selector::Compiled)
         .context("failed to compile SLICE expression with catalog")
 }

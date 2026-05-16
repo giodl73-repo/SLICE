@@ -128,6 +128,7 @@ pub struct ExplainReport {
     pub schema: String,
     pub clause_count: usize,
     pub fields: Vec<ExplainField>,
+    pub tree: ExplainNode,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -136,6 +137,39 @@ pub struct ExplainField {
     pub value_type: ValueType,
     pub operator: Operator,
     pub literal: Literal,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ExplainNode {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<ExplainField>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<ExplainNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ParsedExplainReport {
+    pub schema: String,
+    pub clause_count: usize,
+    pub fields: Vec<ParsedExplainField>,
+    pub tree: ParsedExplainNode,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ParsedExplainField {
+    pub path: String,
+    pub operator: Operator,
+    pub literal: Literal,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ParsedExplainNode {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<ParsedExplainField>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<ParsedExplainNode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -351,7 +385,22 @@ impl Expr {
             schema: "slice.explain.v1".to_string(),
             clause_count: fields.len(),
             fields,
+            tree: self.root.explain(catalog)?,
         })
+    }
+
+    pub fn explain_parse(&self) -> ParsedExplainReport {
+        let fields = self
+            .clauses()
+            .into_iter()
+            .map(Clause::explain_parse)
+            .collect::<Vec<_>>();
+        ParsedExplainReport {
+            schema: "slice.parse_explain.v1".to_string(),
+            clause_count: fields.len(),
+            fields,
+            tree: self.root.explain_parse(),
+        }
     }
 
     pub fn requirements(&self, catalog: &FieldCatalog) -> Result<RequirementReport, SliceError> {
@@ -391,6 +440,66 @@ impl ExprNode {
             }
             ExprNode::Not(child) => child.collect_clauses(clauses),
         }
+    }
+
+    fn explain(&self, catalog: &FieldCatalog) -> Result<ExplainNode, SliceError> {
+        match self {
+            ExprNode::Clause(clause) => Ok(ExplainNode {
+                kind: "clause".to_string(),
+                field: Some(clause.explain(catalog)?),
+                children: Vec::new(),
+            }),
+            ExprNode::All(children) => explain_children("all", children, catalog),
+            ExprNode::Any(children) => explain_children("any", children, catalog),
+            ExprNode::Not(child) => Ok(ExplainNode {
+                kind: "not".to_string(),
+                field: None,
+                children: vec![child.explain(catalog)?],
+            }),
+        }
+    }
+
+    fn explain_parse(&self) -> ParsedExplainNode {
+        match self {
+            ExprNode::Clause(clause) => ParsedExplainNode {
+                kind: "clause".to_string(),
+                field: Some(clause.explain_parse()),
+                children: Vec::new(),
+            },
+            ExprNode::All(children) => parse_explain_children("all", children),
+            ExprNode::Any(children) => parse_explain_children("any", children),
+            ExprNode::Not(child) => ParsedExplainNode {
+                kind: "not".to_string(),
+                field: None,
+                children: vec![child.explain_parse()],
+            },
+        }
+    }
+}
+
+fn explain_children(
+    kind: &str,
+    children: &[ExprNode],
+    catalog: &FieldCatalog,
+) -> Result<ExplainNode, SliceError> {
+    Ok(ExplainNode {
+        kind: kind.to_string(),
+        field: None,
+        children: children
+            .iter()
+            .map(|child| child.explain(catalog))
+            .collect::<Result<Vec<_>, _>>()?,
+    })
+}
+
+fn parse_explain_children(kind: &str, children: &[ExprNode]) -> ParsedExplainNode {
+    ParsedExplainNode {
+        kind: kind.to_string(),
+        field: None,
+        children: children
+            .iter()
+            .map(ExprNode::explain_parse)
+            .collect::<Vec<_>>(),
     }
 }
 
@@ -496,6 +605,14 @@ impl Clause {
             operator: self.op,
             literal: self.literal.clone(),
         })
+    }
+
+    fn explain_parse(&self) -> ParsedExplainField {
+        ParsedExplainField {
+            path: self.path.join("."),
+            operator: self.op,
+            literal: self.literal.clone(),
+        }
     }
 
     fn requirement(&self, catalog: &FieldCatalog) -> Result<RequirementField, SliceError> {
@@ -1262,6 +1379,51 @@ mod tests {
         assert!(expr.matches(&json!({"repo": "TRACKER", "tracker": "[x]", "status": "ready"})));
         assert!(!expr.matches(&json!({"repo": "CROP", "tracker": "[ ]", "status": "blocked"})));
         assert!(!expr.matches(&json!({"repo": "PEBBLE", "tracker": "[ ]", "status": "ready"})));
+    }
+
+    #[test]
+    fn explain_parse_preserves_expression_tree() {
+        let expr =
+            parse("(repo eq 'CROP' or tracker eq '[x]') and not status eq 'blocked'").unwrap();
+        let explain = expr.explain_parse();
+
+        assert_eq!(explain.schema, "slice.parse_explain.v1");
+        assert_eq!(explain.clause_count, 3);
+        assert_eq!(explain.tree.kind, "all");
+        assert_eq!(explain.tree.children[0].kind, "any");
+        assert_eq!(explain.tree.children[1].kind, "not");
+        assert_eq!(
+            explain.tree.children[0].children[0]
+                .field
+                .as_ref()
+                .map(|field| field.path.as_str()),
+            Some("repo")
+        );
+    }
+
+    #[test]
+    fn compiled_explain_preserves_typed_expression_tree() {
+        let mut catalog = FieldCatalog::new();
+        catalog
+            .insert("repo", ValueType::String)
+            .insert("tracker", ValueType::String)
+            .insert("status", ValueType::String);
+        let compiled = compile(
+            "(repo eq 'CROP' or tracker eq '[x]') and not status eq 'blocked'",
+            &catalog,
+        )
+        .unwrap();
+
+        assert_eq!(compiled.explain().clause_count, 3);
+        assert_eq!(compiled.explain().tree.kind, "all");
+        assert_eq!(compiled.explain().tree.children[0].kind, "any");
+        assert_eq!(
+            compiled.explain().tree.children[0].children[0]
+                .field
+                .as_ref()
+                .map(|field| field.value_type),
+            Some(ValueType::String)
+        );
     }
 
     #[test]
