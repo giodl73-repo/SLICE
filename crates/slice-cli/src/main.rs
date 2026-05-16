@@ -34,6 +34,21 @@ enum Command {
         /// JSON catalog mapping field paths to value types for preflight validation.
         #[arg(long)]
         catalog: Option<PathBuf>,
+        /// Field path to sort matching rows by.
+        #[arg(long)]
+        sort_by: Option<String>,
+        /// Sort descending when used with --sort-by.
+        #[arg(long)]
+        desc: bool,
+        /// Number of matching rows to skip after sorting.
+        #[arg(long, default_value_t = 0)]
+        offset: usize,
+        /// Maximum number of matching rows to emit after sorting and offset.
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Print only the count of matching rows, before offset and limit.
+        #[arg(long)]
+        count: bool,
     },
 }
 
@@ -47,6 +62,11 @@ fn main() -> Result<()> {
             markdown_table,
             fields,
             catalog,
+            sort_by,
+            desc,
+            offset,
+            limit,
+            count,
         } => run_eval(
             &expr,
             &input,
@@ -54,8 +74,24 @@ fn main() -> Result<()> {
             markdown_table,
             &fields,
             catalog.as_ref(),
+            ResultOptions {
+                sort_by,
+                desc,
+                offset,
+                limit,
+                count,
+            },
         ),
     }
+}
+
+#[derive(Debug)]
+struct ResultOptions {
+    sort_by: Option<String>,
+    desc: bool,
+    offset: usize,
+    limit: Option<usize>,
+    count: bool,
 }
 
 fn run_eval(
@@ -65,6 +101,7 @@ fn run_eval(
     markdown_table: bool,
     fields: &[String],
     catalog: Option<&PathBuf>,
+    options: ResultOptions,
 ) -> Result<()> {
     if jsonl && markdown_table {
         anyhow::bail!("--jsonl and --markdown-table are mutually exclusive");
@@ -72,41 +109,63 @@ fn run_eval(
     let selector = load_selector(expr, catalog)?;
     let content = fs::read_to_string(input)
         .with_context(|| format!("failed to read input {}", input.display()))?;
+    let mut rows = Vec::new();
 
     if markdown_table {
         for row in markdown_table_rows(&content) {
             if selector.matches(&row) {
-                print_row(&row, fields)?;
+                rows.push(row);
             }
         }
-        return Ok(());
-    }
-
-    if jsonl {
+    } else if jsonl {
         for line in content.lines().filter(|line| !line.trim().is_empty()) {
             let value: Value = serde_json::from_str(line).context("failed to parse JSONL row")?;
             if selector.matches(&value) {
-                print_row(&value, fields)?;
+                rows.push(value);
             }
         }
-        return Ok(());
-    }
-
-    let value: Value = serde_json::from_str(&content).context("failed to parse JSON input")?;
-    match value {
-        Value::Array(items) => {
-            for item in items {
-                if selector.matches(&item) {
-                    print_row(&item, fields)?;
+    } else {
+        let value: Value = serde_json::from_str(&content).context("failed to parse JSON input")?;
+        match value {
+            Value::Array(items) => {
+                for item in items {
+                    if selector.matches(&item) {
+                        rows.push(item);
+                    }
                 }
             }
+            item if selector.matches(&item) => {
+                rows.push(item);
+            }
+            _ => {}
         }
-        item if selector.matches(&item) => {
-            print_row(&item, fields)?;
-        }
-        _ => {}
     }
 
+    emit_rows(rows, fields, &options)
+}
+
+fn emit_rows(mut rows: Vec<Value>, fields: &[String], options: &ResultOptions) -> Result<()> {
+    let selected_count = rows.len();
+    if options.count {
+        println!("{}", serde_json::json!({ "count": selected_count }));
+        return Ok(());
+    }
+    if let Some(sort_by) = &options.sort_by {
+        let path = split_field_path(sort_by);
+        rows.sort_by(|left, right| compare_path_values(left, right, &path));
+        if options.desc {
+            rows.reverse();
+        }
+    }
+    let iter = rows.into_iter().skip(options.offset);
+    let rows: Box<dyn Iterator<Item = Value>> = if let Some(limit) = options.limit {
+        Box::new(iter.take(limit))
+    } else {
+        Box::new(iter)
+    };
+    for row in rows {
+        print_row(&row, fields)?;
+    }
     Ok(())
 }
 
@@ -181,10 +240,7 @@ fn print_row(row: &Value, fields: &[String]) -> Result<()> {
 fn project_fields(row: &Value, fields: &[String]) -> Value {
     let mut output = serde_json::Map::new();
     for field in fields {
-        let path = field
-            .split('.')
-            .filter(|segment| !segment.trim().is_empty())
-            .collect::<Vec<_>>();
+        let path = split_field_path(field);
         if path.is_empty() {
             continue;
         }
@@ -193,6 +249,13 @@ fn project_fields(row: &Value, fields: &[String]) -> Value {
         }
     }
     Value::Object(output)
+}
+
+fn split_field_path(field: &str) -> Vec<&str> {
+    field
+        .split('.')
+        .filter(|segment| !segment.trim().is_empty())
+        .collect::<Vec<_>>()
 }
 
 fn lookup_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
@@ -225,6 +288,43 @@ fn insert_projected_value(
         if let Value::Object(child) = entry {
             insert_projected_value(child, tail, value);
         }
+    }
+}
+
+fn compare_path_values(left: &Value, right: &Value, path: &[&str]) -> std::cmp::Ordering {
+    let left = lookup_path(left, path);
+    let right = lookup_path(right, path);
+    match (left, right) {
+        (Some(left), Some(right)) => compare_values(left, right),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+}
+
+fn compare_values(left: &Value, right: &Value) -> std::cmp::Ordering {
+    match (left, right) {
+        (Value::Number(left), Value::Number(right)) => left
+            .as_f64()
+            .partial_cmp(&right.as_f64())
+            .unwrap_or(std::cmp::Ordering::Equal),
+        (Value::String(left), Value::String(right)) => left.cmp(right),
+        (Value::Bool(left), Value::Bool(right)) => left.cmp(right),
+        (Value::Null, Value::Null) => std::cmp::Ordering::Equal,
+        (Value::Null, _) => std::cmp::Ordering::Greater,
+        (_, Value::Null) => std::cmp::Ordering::Less,
+        _ => type_rank(left).cmp(&type_rank(right)),
+    }
+}
+
+fn type_rank(value: &Value) -> u8 {
+    match value {
+        Value::Bool(_) => 0,
+        Value::Number(_) => 1,
+        Value::String(_) => 2,
+        Value::Array(_) => 3,
+        Value::Object(_) => 4,
+        Value::Null => 5,
     }
 }
 
@@ -449,5 +549,38 @@ mod tests {
         let err = parse_catalog(r#"{"repo": "text"}"#).unwrap_err();
 
         assert!(err.to_string().contains("unsupported catalog value type"));
+    }
+
+    #[test]
+    fn emit_rows_sorts_offsets_limits_and_projects() {
+        let mut rows = vec![
+            serde_json::json!({"repo": "PEBBLE", "priority": 2}),
+            serde_json::json!({"repo": "CROP", "priority": 1}),
+            serde_json::json!({"repo": "PROOF", "priority": 3}),
+        ];
+        let path = split_field_path("priority");
+        rows.sort_by(|left, right| compare_path_values(left, right, &path));
+        let selected = rows
+            .into_iter()
+            .skip(1)
+            .take(1)
+            .map(|row| project_fields(&row, &["repo".to_string()]))
+            .collect::<Vec<_>>();
+
+        assert_eq!(selected, vec![serde_json::json!({"repo": "PEBBLE"})]);
+    }
+
+    #[test]
+    fn compare_path_values_puts_missing_values_last() {
+        let path = split_field_path("priority");
+        let mut rows = vec![
+            serde_json::json!({"repo": "missing"}),
+            serde_json::json!({"repo": "present", "priority": 1}),
+        ];
+
+        rows.sort_by(|left, right| compare_path_values(left, right, &path));
+
+        assert_eq!(rows[0]["repo"], "present");
+        assert_eq!(rows[1]["repo"], "missing");
     }
 }

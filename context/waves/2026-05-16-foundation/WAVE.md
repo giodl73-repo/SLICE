@@ -38,6 +38,7 @@ new predicate language.
 | 20 | Membership and null operators | done | `slice-core` added `in`, `not in`, `is null`, and `is not null` for compact repo/status and sparse-row selectors. |
 | 21 | OData-style expression syntax | done | `slice-core` added `or`, unary `not`, parentheses, `between`, `starts_with`, `ends_with`, `has any`, and `has all`. |
 | 22 | CLI catalog loading | done | `slice eval --catalog` type-checks JSON, JSONL, and Markdown-table selectors against reusable field catalogs. |
+| 23 | CLI result shaping | done | `slice eval` added sort, descending order, offset, limit, and count for OData-style query pipelines. |
 
 ## Success criteria
 

@@ -240,5 +240,9 @@ Pulse 22 adds CLI catalog loading. `slice eval --catalog` accepts a JSON field
 catalog and compiles selectors before scanning rows, so Markdown/JSONL tooling
 can use the same type-checking and diagnostics path as runtime adapters.
 
+Pulse 23 adds CLI result shaping. `slice eval` can sort, page, limit, and count
+selected rows without moving those operations into `slice-core`; the core stays
+the expression kernel while the CLI owns pipeline presentation.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.

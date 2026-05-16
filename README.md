@@ -32,7 +32,9 @@ The first contract is intentionally small:
 - optional typed field catalogs before evaluation, including CLI `--catalog`
   JSON files;
 - CLI adapters for JSON arrays, JSONL rows, and Markdown tables;
-- CLI projection with `--fields` for emitting only selected row fields.
+- CLI projection with `--fields` for emitting only selected row fields;
+- CLI result shaping with `--sort-by`, `--desc`, `--offset`, `--limit`, and
+  `--count`.
 
 ```bash
 slice eval --expr "metadata.tags has 'context' and metadata.status eq 'ready'" --input examples/pebble.json
@@ -66,6 +68,12 @@ Use `--catalog` to type-check CLI selectors before evaluating rows:
 
 ```bash
 slice eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+```
+
+Use result-shaping flags for OData-style planning queries:
+
+```bash
+slice eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
 ```
 
 ## Formalism
@@ -140,6 +148,8 @@ cargo run -p slice-cli -- eval --markdown-table --expr "tracker eq '[x]'" --inpu
 cargo run -p slice-cli -- eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 cargo run -p slice-cli -- eval --markdown-table --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --count
 cargo run -p slice-mock-client
 ```
 
