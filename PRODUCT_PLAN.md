@@ -13,6 +13,19 @@ SLICE is a shared dependency below FLETCH, CROP, PEBBLE, PROOF, and domain CLIs.
 It should depend only on stable parsing/evaluation crates and common data types.
 Consumers adapt their own records into SLICE values.
 
+## Consumer points of view
+
+- **CROP:** replace local metadata/frontmatter predicate parsing only after
+  parity is proven; CROP keeps graph cuts, corpus health, and view policy.
+- **PEBBLE:** make document and section metadata easy to select without changing
+  `pebble.v1` schema ownership.
+- **FLETCH:** slice manifests, cachelines, partitions, and quivers locally
+  without implying fetch/cache execution.
+- **PROOF:** filter generated reports and CROP-backed slices without moving
+  Markdown rendering or source fidelity into SLICE.
+- **ICELINES:** keep domain-friendly hockey query commands and aliases while
+  reusing low-level expression pieces where they help.
+
 ## Waves
 
 1. **Foundation** - create the Rust workspace, first selector grammar, CLI smoke
