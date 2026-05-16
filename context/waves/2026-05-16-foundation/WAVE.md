@@ -30,6 +30,7 @@ new predicate language.
 | 12 | PROOF selector examples | done | PROOF added dev-only SLICE tests for artifact manifest row selectors. |
 | 13 | ICELINES selector examples | done | ICELINES added dev-only SLICE tests for simple player bio/stat row predicates while keeping hockey query semantics local. |
 | 14 | PEBBLE optional runtime selectors | done | PEBBLE added a feature-gated SLICE selector helper for document and section metadata rows. |
+| 15 | PROOF artifact runtime selectors | done | PROOF added a SLICE-backed artifact manifest selector helper over prepared compile report rows. |
 
 ## Success criteria
 

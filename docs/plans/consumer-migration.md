@@ -51,16 +51,17 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      selector example.
 
 4. **PROOF report and CROP-backed slice filters**
-   - Status: example adoption in PROOF commit `6737d8c`; tests demonstrate
-     artifact manifest row selectors with a dev-only `slice-core` dependency.
+   - Status: runtime adoption in PROOF commit `c81ec4d`; `proof_lib::artifact`
+     exposes a SLICE-backed helper for filtering prepared artifact manifest
+     rows.
    - Target: report-side filtering after PROOF has artifacts or CROP side-info
      rows in hand.
    - SLICE owns: low-level predicates over prepared rows.
    - PROOF keeps: Markdown/source fidelity, directives, compile graph,
      rendering, and artifact manifests.
    - Gate: report output remains byte-stable except for intentionally selected
-     rows. This gate is met for artifact-row examples because selection happens
-     after PROOF has already compiled and produced manifest-shaped rows.
+     rows. This gate is met because selection happens after PROOF has already
+     compiled and produced manifest-shaped rows.
 
 5. **ICELINES simple bio/stat adapter**
    - Status: example adoption in ICELINES commit `b4e05b2`; tests demonstrate
