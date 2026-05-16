@@ -29,6 +29,7 @@ new predicate language.
 | 11 | FLETCH selector examples | done | FLETCH added dev-only SLICE tests for cache-index and active-partition selectors. |
 | 12 | PROOF selector examples | done | PROOF added dev-only SLICE tests for artifact manifest row selectors. |
 | 13 | ICELINES selector examples | done | ICELINES added dev-only SLICE tests for simple player bio/stat row predicates while keeping hockey query semantics local. |
+| 14 | PEBBLE optional runtime selectors | done | PEBBLE added a feature-gated SLICE selector helper for document and section metadata rows. |
 
 ## Success criteria
 

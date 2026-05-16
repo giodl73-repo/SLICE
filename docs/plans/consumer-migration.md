@@ -26,16 +26,17 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      semantics.
 
 2. **PEBBLE metadata selector examples**
-   - Status: example adoption in PEBBLE commit `7460225`; tests demonstrate
-     document and section metadata selection with a dev-only `slice-core`
-     dependency.
+   - Status: optional runtime adoption in PEBBLE commit `9239143`; the
+     feature-gated `slice` helper selects documents and sections with
+     `slice-core` while preserving PEBBLE's product-neutral schema boundary.
    - Target: document/section metadata filters used by context-pack consumers.
    - SLICE owns: reusable metadata selector evaluation against Pebble-shaped
      values.
-   - PEBBLE keeps: `pebble.v1` schema, chunking, provenance, and pack emission.
+   - PEBBLE keeps: `pebble.v1` schema, chunking, provenance, pack emission, and
+     the choice of whether consumers enable selector helpers.
    - Gate: examples demonstrate identical selected document/section IDs before
-     and after the adapter. This gate is met for document `source` IDs and
-     section `{source}#{id}` IDs in PEBBLE's selector examples.
+     and after the adapter. This gate is met by PEBBLE's feature-enabled
+     document and section selector tests.
 
 3. **FLETCH manifest and partition selectors**
    - Status: example adoption in FLETCH commit `1aeceea`; tests demonstrate
