@@ -21,6 +21,7 @@ new predicate language.
 | 03 | Typed path catalogs | done | Added numeric comparisons and field catalogs so mock adapters validate selector paths and value types. |
 | 04 | Explain reports | done | Added machine-readable explain reports for compiled selectors and mock-client output. |
 | 05 | Consumer migration plan | done | Chose CROP frontmatter-query parity as the first real adoption surface and recorded downstream boundaries. |
+| 06 | Diagnostic reports | done | Added machine-readable diagnostics with byte offsets and catalog/type context. |
 
 ## Success criteria
 

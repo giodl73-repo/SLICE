@@ -70,6 +70,9 @@ let explain = selector.explain();
 `explain` is machine-readable, so downstream CLIs and agents can show which
 fields, operators, and typed literals a selector depends on.
 
+Errors also expose `diagnostic()` as `slice.diagnostic.v1`, including the error
+kind, message, byte offset, and catalog/type details when available.
+
 ## Non-goals
 
 - SLICE does not fetch data, build corpora, or cache artifacts.

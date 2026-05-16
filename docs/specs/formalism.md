@@ -217,5 +217,10 @@ Pulse 04 adds the first machine-readable explain report. It summarizes the
 resolved fields, value types, operators, and literals for a compiled selector.
 Requirement planning is still consumer-owned and remains future work.
 
+Pulse 06 adds machine-readable diagnostic reports for parser and catalog
+validation failures. SLICE reports byte offsets and typed error context;
+consumers still own display wording, remediation links, and compatibility
+policy.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.

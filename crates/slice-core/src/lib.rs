@@ -17,19 +17,21 @@ pub enum SliceError {
     UnsupportedOperator { operator: String, offset: usize },
     #[error("trailing input at byte {offset}: {token}")]
     TrailingInput { token: String, offset: usize },
-    #[error("unknown field path: {path}")]
-    UnknownField { path: String },
-    #[error("operator {operator:?} is not valid for {path} ({value_type:?})")]
+    #[error("unknown field path at byte {offset}: {path}")]
+    UnknownField { path: String, offset: usize },
+    #[error("operator {operator:?} is not valid for {path} ({value_type:?}) at byte {offset}")]
     InvalidOperator {
         path: String,
         operator: Operator,
         value_type: ValueType,
+        offset: usize,
     },
-    #[error("literal {literal:?} is not valid for {path} ({value_type:?})")]
+    #[error("literal {literal:?} is not valid for {path} ({value_type:?}) at byte {offset}")]
     InvalidLiteral {
         path: String,
         literal: Literal,
         value_type: ValueType,
+        offset: usize,
     },
 }
 
@@ -41,8 +43,11 @@ pub struct Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Clause {
     path: Vec<String>,
+    path_offset: usize,
     op: Operator,
+    operator_offset: usize,
     literal: Literal,
+    literal_offset: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -110,6 +115,29 @@ pub struct ExplainField {
     pub literal: Literal,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DiagnosticReport {
+    pub schema: String,
+    pub kind: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operator: Option<Operator>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_type: Option<ValueType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub literal: Option<Literal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_operators: Option<Vec<Operator>>,
+}
+
 pub fn parse(source: &str) -> Result<Expr, SliceError> {
     Parser::new(source).parse()
 }
@@ -119,6 +147,114 @@ pub fn compile(source: &str, catalog: &FieldCatalog) -> Result<CompiledExpr, Sli
     expr.validate(catalog)?;
     let explain = expr.explain(catalog)?;
     Ok(CompiledExpr { expr, explain })
+}
+
+impl SliceError {
+    pub fn diagnostic(&self) -> DiagnosticReport {
+        match self {
+            SliceError::Expected { expected, offset } => DiagnosticReport {
+                schema: "slice.diagnostic.v1".to_string(),
+                kind: "expected".to_string(),
+                message: self.to_string(),
+                offset: Some(*offset),
+                expected: Some((*expected).to_string()),
+                token: None,
+                path: None,
+                operator: None,
+                value_type: None,
+                literal: None,
+                allowed_operators: None,
+            },
+            SliceError::UnexpectedToken { token, offset } => DiagnosticReport {
+                schema: "slice.diagnostic.v1".to_string(),
+                kind: "unexpected_token".to_string(),
+                message: self.to_string(),
+                offset: Some(*offset),
+                expected: None,
+                token: Some(token.clone()),
+                path: None,
+                operator: None,
+                value_type: None,
+                literal: None,
+                allowed_operators: None,
+            },
+            SliceError::UnsupportedOperator { operator, offset } => DiagnosticReport {
+                schema: "slice.diagnostic.v1".to_string(),
+                kind: "unsupported_operator".to_string(),
+                message: self.to_string(),
+                offset: Some(*offset),
+                expected: Some("operator".to_string()),
+                token: Some(operator.clone()),
+                path: None,
+                operator: None,
+                value_type: None,
+                literal: None,
+                allowed_operators: Some(all_operators()),
+            },
+            SliceError::TrailingInput { token, offset } => DiagnosticReport {
+                schema: "slice.diagnostic.v1".to_string(),
+                kind: "trailing_input".to_string(),
+                message: self.to_string(),
+                offset: Some(*offset),
+                expected: None,
+                token: Some(token.clone()),
+                path: None,
+                operator: None,
+                value_type: None,
+                literal: None,
+                allowed_operators: None,
+            },
+            SliceError::UnknownField { path, offset } => DiagnosticReport {
+                schema: "slice.diagnostic.v1".to_string(),
+                kind: "unknown_field".to_string(),
+                message: self.to_string(),
+                offset: Some(*offset),
+                expected: Some("known catalog field path".to_string()),
+                token: None,
+                path: Some(path.clone()),
+                operator: None,
+                value_type: None,
+                literal: None,
+                allowed_operators: None,
+            },
+            SliceError::InvalidOperator {
+                path,
+                operator,
+                value_type,
+                offset,
+            } => DiagnosticReport {
+                schema: "slice.diagnostic.v1".to_string(),
+                kind: "invalid_operator".to_string(),
+                message: self.to_string(),
+                offset: Some(*offset),
+                expected: Some("operator compatible with field type".to_string()),
+                token: None,
+                path: Some(path.clone()),
+                operator: Some(*operator),
+                value_type: Some(*value_type),
+                literal: None,
+                allowed_operators: Some(operators_for_type(*value_type)),
+            },
+            SliceError::InvalidLiteral {
+                path,
+                literal,
+                value_type,
+                offset,
+            } => DiagnosticReport {
+                schema: "slice.diagnostic.v1".to_string(),
+                kind: "invalid_literal".to_string(),
+                message: self.to_string(),
+                offset: Some(*offset),
+                expected: Some(format!("{value_type:?} literal")),
+                token: None,
+                path: Some(path.clone()),
+                operator: None,
+                value_type: Some(*value_type),
+                literal: Some(literal.clone()),
+                allowed_operators: None,
+            },
+        }
+    }
 }
 
 impl FieldSpec {
@@ -222,7 +358,10 @@ impl Clause {
     fn validate(&self, catalog: &FieldCatalog) -> Result<(), SliceError> {
         let path = self.path.join(".");
         let Some(field) = catalog.get(&path) else {
-            return Err(SliceError::UnknownField { path });
+            return Err(SliceError::UnknownField {
+                path,
+                offset: self.path_offset,
+            });
         };
 
         if !operator_valid_for_type(self.op, field.value_type) {
@@ -230,6 +369,7 @@ impl Clause {
                 path,
                 operator: self.op,
                 value_type: field.value_type,
+                offset: self.operator_offset,
             });
         }
 
@@ -238,6 +378,7 @@ impl Clause {
                 path,
                 literal: self.literal.clone(),
                 value_type: field.value_type,
+                offset: self.literal_offset,
             });
         }
 
@@ -247,7 +388,10 @@ impl Clause {
     fn explain(&self, catalog: &FieldCatalog) -> Result<ExplainField, SliceError> {
         let path = self.path.join(".");
         let Some(field) = catalog.get(&path) else {
-            return Err(SliceError::UnknownField { path });
+            return Err(SliceError::UnknownField {
+                path,
+                offset: self.path_offset,
+            });
         };
         Ok(ExplainField {
             path,
@@ -343,6 +487,26 @@ fn operator_valid_for_type(operator: Operator, value_type: ValueType) -> bool {
     }
 }
 
+fn all_operators() -> Vec<Operator> {
+    vec![
+        Operator::Eq,
+        Operator::Ne,
+        Operator::Has,
+        Operator::Contains,
+        Operator::Gt,
+        Operator::Ge,
+        Operator::Lt,
+        Operator::Le,
+    ]
+}
+
+fn operators_for_type(value_type: ValueType) -> Vec<Operator> {
+    all_operators()
+        .into_iter()
+        .filter(|operator| operator_valid_for_type(*operator, value_type))
+        .collect()
+}
+
 fn literal_valid_for_type(literal: &Literal, value_type: ValueType) -> bool {
     if matches!(value_type, ValueType::Any) {
         return true;
@@ -412,7 +576,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_clause(&mut self) -> Result<Clause, SliceError> {
-        let path = self.parse_path()?;
+        let (path, path_offset) = self.parse_path()?;
         let op_token = self.expect_ident("operator")?;
         let op = match op_token.0.as_str() {
             "eq" => Operator::Eq,
@@ -430,31 +594,40 @@ impl<'a> Parser<'a> {
                 })
             }
         };
-        let literal = self.parse_literal()?;
-        Ok(Clause { path, op, literal })
+        let (literal, literal_offset) = self.parse_literal()?;
+        Ok(Clause {
+            path,
+            path_offset,
+            op,
+            operator_offset: op_token.1,
+            literal,
+            literal_offset,
+        })
     }
 
-    fn parse_path(&mut self) -> Result<Vec<String>, SliceError> {
-        let mut path = vec![self.expect_ident("field path")?.0];
+    fn parse_path(&mut self) -> Result<(Vec<String>, usize), SliceError> {
+        let first = self.expect_ident("field path")?;
+        let mut path = vec![first.0];
         while matches!(self.peek().map(|token| &token.kind), Some(TokenKind::Dot)) {
             self.cursor += 1;
             path.push(self.expect_ident("field path segment")?.0);
         }
-        Ok(path)
+        Ok((path, first.1))
     }
 
-    fn parse_literal(&mut self) -> Result<Literal, SliceError> {
+    fn parse_literal(&mut self) -> Result<(Literal, usize), SliceError> {
         let Some(token) = self.next() else {
             return Err(SliceError::Expected {
                 expected: "literal",
                 offset: self.source.len(),
             });
         };
+        let offset = token.offset;
         match token.kind {
-            TokenKind::String(value) => Ok(Literal::String(value)),
-            TokenKind::Number(value) => Ok(Literal::Number(value)),
-            TokenKind::Bool(value) => Ok(Literal::Bool(value)),
-            TokenKind::Null => Ok(Literal::Null),
+            TokenKind::String(value) => Ok((Literal::String(value), offset)),
+            TokenKind::Number(value) => Ok((Literal::Number(value), offset)),
+            TokenKind::Bool(value) => Ok((Literal::Bool(value), offset)),
+            TokenKind::Null => Ok((Literal::Null, offset)),
             _ => Err(SliceError::UnexpectedToken {
                 token: token_text(&token),
                 offset: token.offset,
@@ -632,7 +805,8 @@ mod tests {
         assert_eq!(
             err,
             SliceError::UnknownField {
-                path: "metadata.status".to_string()
+                path: "metadata.status".to_string(),
+                offset: 0
             }
         );
     }
@@ -649,8 +823,34 @@ mod tests {
             SliceError::InvalidOperator {
                 path: "metadata.status".to_string(),
                 operator: Operator::Ge,
-                value_type: ValueType::String
+                value_type: ValueType::String,
+                offset: 16
             }
+        );
+    }
+
+    #[test]
+    fn reports_machine_readable_diagnostics() {
+        let mut catalog = FieldCatalog::new();
+        catalog.insert("metadata.status", ValueType::String);
+
+        let err = compile("metadata.status ge 1", &catalog).unwrap_err();
+        let diagnostic = err.diagnostic();
+
+        assert_eq!(diagnostic.schema, "slice.diagnostic.v1");
+        assert_eq!(diagnostic.kind, "invalid_operator");
+        assert_eq!(diagnostic.offset, Some(16));
+        assert_eq!(diagnostic.path, Some("metadata.status".to_string()));
+        assert_eq!(diagnostic.operator, Some(Operator::Ge));
+        assert_eq!(diagnostic.value_type, Some(ValueType::String));
+        assert_eq!(
+            diagnostic.allowed_operators,
+            Some(vec![
+                Operator::Eq,
+                Operator::Ne,
+                Operator::Has,
+                Operator::Contains
+            ])
         );
     }
 
