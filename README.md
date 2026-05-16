@@ -33,6 +33,18 @@ consumer-owned requirements, evaluate over adapter-provided values, and explain
 the result. The detailed model is in
 [`docs/specs/formalism.md`](docs/specs/formalism.md).
 
+## Mock client
+
+`slice-mock-client` is the local downstream validation harness. It runs the
+current selector contract over Pebble-shaped metadata, CROP-like evidence units,
+FLETCH-like active partitions, and ICELINES-like player rows. For FLETCH, SLICE
+selects rows and the mock client performs the downstream fold into quiver
+candidates, preserving the layer boundary.
+
+```bash
+cargo run -p slice-mock-client
+```
+
 ## Rust
 
 ```rust
@@ -56,6 +68,7 @@ let ok = expr.matches(&serde_json::json!({
 cargo fmt --check
 cargo test
 cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/pebble.json
+cargo run -p slice-mock-client
 ```
 
 ## License

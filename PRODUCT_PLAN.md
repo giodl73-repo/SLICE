@@ -45,6 +45,9 @@ data requirements, ranking, rendering, and domain policy. See
 2. **Adapters** - add optional adapters or examples for Pebble documents, CROP
    units/views, and FLETCH manifests/partitions without pulling product policy
    or FLETCH cacheline folding into core.
+   - Current local validation: `slice-mock-client` exercises Pebble-shaped,
+     CROP-like, FLETCH-like, and ICELINES-like rows while keeping FLETCH folding
+     in the client layer.
 3. **Diagnostics and planning** - improve parser spans, actionable diagnostics,
    and reusable explain output for agents and CLIs.
 4. **ICELINES-shaped IR experiment** - prototype an adapter for simple

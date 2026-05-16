@@ -17,7 +17,7 @@ new predicate language.
 | Pulse | Title | Status | Outcome |
 |------:|-------|--------|---------|
 | 01 | Workspace foundation | done | Created repo skeleton, docs, skills, and first tested contract. |
-| 02 | Pebble/CROP/FLETCH examples | pending | Prove selectors over representative artifact shapes. |
+| 02 | Pebble/CROP/FLETCH examples | done | Added `slice-mock-client` to prove selectors over representative artifact shapes and downstream FLETCH folding. |
 | 03 | Consumer migration plan | pending | Identify the first repo surface to replace local query parsing. |
 
 ## Success criteria

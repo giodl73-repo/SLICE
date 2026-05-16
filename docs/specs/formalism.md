@@ -205,5 +205,9 @@ shared subset:
 6. Keep windows, career aggregation, similarity search, sorting, and data
    requirements in ICELINES until the shared abstraction earns them.
 
+The first local validation harness for this rule is `slice-mock-client`. It is
+not a product adapter; it is a repo-local guardrail that keeps representative
+consumer shapes in the test suite while the real adapters remain downstream.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.
