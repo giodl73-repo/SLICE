@@ -39,16 +39,16 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      document and section selector tests.
 
 3. **FLETCH manifest and partition selectors**
-   - Status: example adoption in FLETCH commit `1aeceea`; tests demonstrate
-     cache-index and active-partition selectors with a dev-only `slice-core`
-     dependency.
+   - Status: runtime adoption in FLETCH commit `b7ddbe7`; `fletch-core`
+     exposes SLICE-backed helpers for cache-index and active-partition row
+     selectors.
    - Target: filter cacheline/partition manifest rows before FLETCH folds them.
    - SLICE owns: selecting manifest rows and explaining the required fields.
    - FLETCH keeps: cacheline profiles, active partition sets, rollups, quiver
      candidates, fetch/cache execution, and policy gates.
    - Gate: selected partition rows are stable, and folded quiver output remains
-     produced by FLETCH-side code. This gate is met in FLETCH's active-partition
-     selector example.
+     produced by FLETCH-side code. This gate is met by FLETCH's cache-index and
+     active-partition runtime selector tests.
 
 4. **PROOF report and CROP-backed slice filters**
    - Status: runtime adoption in PROOF commit `c81ec4d`; `proof_lib::artifact`
