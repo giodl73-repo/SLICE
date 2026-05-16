@@ -26,6 +26,7 @@ new predicate language.
 | 08 | CROP parity mock | done | Proved CROP frontmatter-query behavior in the mock client without moving CROP policy into core. |
 | 09 | First consumer adoption | done | CROP adopted `slice-core` for `frontmatter_query` while keeping view and graph policy local. |
 | 10 | PEBBLE selector examples | done | PEBBLE added dev-only SLICE tests for document and section metadata selectors. |
+| 11 | FLETCH selector examples | done | FLETCH added dev-only SLICE tests for cache-index and active-partition selectors. |
 
 ## Success criteria
 

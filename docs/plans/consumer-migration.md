@@ -38,12 +38,16 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      section `{source}#{id}` IDs in PEBBLE's selector examples.
 
 3. **FLETCH manifest and partition selectors**
+   - Status: example adoption in FLETCH commit `1aeceea`; tests demonstrate
+     cache-index and active-partition selectors with a dev-only `slice-core`
+     dependency.
    - Target: filter cacheline/partition manifest rows before FLETCH folds them.
    - SLICE owns: selecting manifest rows and explaining the required fields.
    - FLETCH keeps: cacheline profiles, active partition sets, rollups, quiver
      candidates, fetch/cache execution, and policy gates.
    - Gate: selected partition rows are stable, and folded quiver output remains
-     produced by FLETCH-side code.
+     produced by FLETCH-side code. This gate is met in FLETCH's active-partition
+     selector example.
 
 4. **PROOF report and CROP-backed slice filters**
    - Target: report-side filtering after PROOF has artifacts or CROP side-info
