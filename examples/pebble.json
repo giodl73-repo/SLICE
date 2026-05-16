@@ -1,0 +1,1 @@
+{"schema":"pebble.v1","kind":"document","title":"SLICE example","source":"example.md","format":"markdown","metadata":{"status":"ready","tags":["context","query"]},"sections":[{"id":"example","path":["Example"],"level":1,"line":1,"text":"# Example\n\nSLICE selects this Pebble-shaped artifact.","metadata":{"tags":["context"]}}],"refs":[]}

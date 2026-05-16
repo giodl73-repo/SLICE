@@ -1,0 +1,12 @@
+[package]
+name = "slice-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Product-neutral query and expression kernel for selecting typed artifacts."
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true

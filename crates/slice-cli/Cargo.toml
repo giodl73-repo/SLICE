@@ -1,0 +1,18 @@
+[package]
+name = "slice-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CLI for evaluating SLICE expressions over JSON and JSONL artifacts."
+
+[[bin]]
+name = "slice"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+slice-core = { path = "../slice-core" }
