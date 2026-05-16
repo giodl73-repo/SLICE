@@ -37,6 +37,7 @@ new predicate language.
 | 19 | CLI projection | done | `slice eval --fields` projects matching JSON, JSONL, and Markdown-table rows for scripts and planning reports. |
 | 20 | Membership and null operators | done | `slice-core` added `in`, `not in`, `is null`, and `is not null` for compact repo/status and sparse-row selectors. |
 | 21 | OData-style expression syntax | done | `slice-core` added `or`, unary `not`, parentheses, `between`, `starts_with`, `ends_with`, `has any`, and `has all`. |
+| 22 | CLI catalog loading | done | `slice eval --catalog` type-checks JSON, JSONL, and Markdown-table selectors against reusable field catalogs. |
 
 ## Success criteria
 

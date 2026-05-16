@@ -31,6 +31,9 @@ enum Command {
         /// Comma-separated field paths to emit from matching rows.
         #[arg(long, value_delimiter = ',')]
         fields: Vec<String>,
+        /// JSON catalog mapping field paths to value types for preflight validation.
+        #[arg(long)]
+        catalog: Option<PathBuf>,
     },
 }
 
@@ -43,7 +46,15 @@ fn main() -> Result<()> {
             jsonl,
             markdown_table,
             fields,
-        } => run_eval(&expr, &input, jsonl, markdown_table, &fields),
+            catalog,
+        } => run_eval(
+            &expr,
+            &input,
+            jsonl,
+            markdown_table,
+            &fields,
+            catalog.as_ref(),
+        ),
     }
 }
 
@@ -53,17 +64,18 @@ fn run_eval(
     jsonl: bool,
     markdown_table: bool,
     fields: &[String],
+    catalog: Option<&PathBuf>,
 ) -> Result<()> {
     if jsonl && markdown_table {
         anyhow::bail!("--jsonl and --markdown-table are mutually exclusive");
     }
-    let expr = slice_core::parse(expr).context("failed to parse SLICE expression")?;
+    let selector = load_selector(expr, catalog)?;
     let content = fs::read_to_string(input)
         .with_context(|| format!("failed to read input {}", input.display()))?;
 
     if markdown_table {
         for row in markdown_table_rows(&content) {
-            if expr.matches(&row) {
+            if selector.matches(&row) {
                 print_row(&row, fields)?;
             }
         }
@@ -73,7 +85,7 @@ fn run_eval(
     if jsonl {
         for line in content.lines().filter(|line| !line.trim().is_empty()) {
             let value: Value = serde_json::from_str(line).context("failed to parse JSONL row")?;
-            if expr.matches(&value) {
+            if selector.matches(&value) {
                 print_row(&value, fields)?;
             }
         }
@@ -84,18 +96,76 @@ fn run_eval(
     match value {
         Value::Array(items) => {
             for item in items {
-                if expr.matches(&item) {
+                if selector.matches(&item) {
                     print_row(&item, fields)?;
                 }
             }
         }
-        item if expr.matches(&item) => {
+        item if selector.matches(&item) => {
             print_row(&item, fields)?;
         }
         _ => {}
     }
 
     Ok(())
+}
+
+enum Selector {
+    Parsed(slice_core::Expr),
+    Compiled(slice_core::CompiledExpr),
+}
+
+impl Selector {
+    fn matches(&self, value: &Value) -> bool {
+        match self {
+            Selector::Parsed(expr) => expr.matches(value),
+            Selector::Compiled(expr) => expr.matches(value),
+        }
+    }
+}
+
+fn load_selector(expr: &str, catalog: Option<&PathBuf>) -> Result<Selector> {
+    let Some(catalog_path) = catalog else {
+        return slice_core::parse(expr)
+            .map(Selector::Parsed)
+            .context("failed to parse SLICE expression");
+    };
+    let content = fs::read_to_string(catalog_path)
+        .with_context(|| format!("failed to read catalog {}", catalog_path.display()))?;
+    let catalog = parse_catalog(&content).context("failed to parse SLICE catalog")?;
+    slice_core::compile(expr, &catalog)
+        .map(Selector::Compiled)
+        .context("failed to compile SLICE expression with catalog")
+}
+
+fn parse_catalog(content: &str) -> Result<slice_core::FieldCatalog> {
+    let value: Value = serde_json::from_str(content).context("catalog must be JSON")?;
+    let fields = value
+        .get("fields")
+        .unwrap_or(&value)
+        .as_object()
+        .context("catalog must be an object or contain an object-valued 'fields' key")?;
+    let mut catalog = slice_core::FieldCatalog::new();
+    for (path, value_type) in fields {
+        let type_name = value_type
+            .as_str()
+            .with_context(|| format!("catalog field {path:?} must map to a string value type"))?;
+        catalog.insert(path, parse_value_type(type_name)?);
+    }
+    Ok(catalog)
+}
+
+fn parse_value_type(type_name: &str) -> Result<slice_core::ValueType> {
+    match type_name.to_ascii_lowercase().as_str() {
+        "string" => Ok(slice_core::ValueType::String),
+        "number" => Ok(slice_core::ValueType::Number),
+        "bool" | "boolean" => Ok(slice_core::ValueType::Bool),
+        "array" => Ok(slice_core::ValueType::Array),
+        "object" => Ok(slice_core::ValueType::Object),
+        "null" => Ok(slice_core::ValueType::Null),
+        "any" => Ok(slice_core::ValueType::Any),
+        other => anyhow::bail!("unsupported catalog value type {other:?}"),
+    }
 }
 
 fn print_row(row: &Value, fields: &[String]) -> Result<()> {
@@ -338,5 +408,46 @@ mod tests {
                 "tracker": "[x]",
             })
         );
+    }
+
+    #[test]
+    fn parse_catalog_accepts_field_map() {
+        let catalog = parse_catalog(
+            r#"{
+                "fields": {
+                    "repo": "string",
+                    "priority": "number",
+                    "active": "bool",
+                    "tags": "array"
+                }
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            catalog.get("repo").map(slice_core::FieldSpec::value_type),
+            Some(slice_core::ValueType::String)
+        );
+        assert_eq!(
+            catalog
+                .get("priority")
+                .map(slice_core::FieldSpec::value_type),
+            Some(slice_core::ValueType::Number)
+        );
+        assert_eq!(
+            catalog.get("active").map(slice_core::FieldSpec::value_type),
+            Some(slice_core::ValueType::Bool)
+        );
+        assert_eq!(
+            catalog.get("tags").map(slice_core::FieldSpec::value_type),
+            Some(slice_core::ValueType::Array)
+        );
+    }
+
+    #[test]
+    fn parse_catalog_rejects_unknown_value_type() {
+        let err = parse_catalog(r#"{"repo": "text"}"#).unwrap_err();
+
+        assert!(err.to_string().contains("unsupported catalog value type"));
     }
 }

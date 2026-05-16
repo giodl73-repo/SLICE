@@ -236,5 +236,9 @@ parity. The adapter derives a catalog from query paths, materializes missing
 fields as `null` for CROP-compatible `ne`, and converts array-like tag strings
 before evaluation. The behavior belongs to the adapter, not `slice-core`.
 
+Pulse 22 adds CLI catalog loading. `slice eval --catalog` accepts a JSON field
+catalog and compiles selectors before scanning rows, so Markdown/JSONL tooling
+can use the same type-checking and diagnostics path as runtime adapters.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.

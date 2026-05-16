@@ -1,0 +1,13 @@
+{
+  "fields": {
+    "slice_layer": "string",
+    "intended_use": "string",
+    "crop": "string",
+    "pebble": "string",
+    "fletch": "string",
+    "proof": "string",
+    "icelines": "string",
+    "tracker": "string",
+    "notes": "string"
+  }
+}
