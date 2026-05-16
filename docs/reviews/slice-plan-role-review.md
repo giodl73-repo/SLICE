@@ -49,3 +49,7 @@ Follow-up clarification: `docs/specs/formalism.md` now makes this concrete.
 SLICE should extract the reusable typed selector pipeline underneath
 ICELINES-style query engines, not replace `icelines query` or move hockey
 semantics into `slice-core`.
+
+Second clarification: FLETCH cacheline/partition intelligence sits above SLICE.
+SLICE can select manifest or partition rows; FLETCH owns folding those rows into
+cacheline, rollup, quiver, and gate plans.

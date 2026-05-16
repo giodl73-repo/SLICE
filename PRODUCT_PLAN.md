@@ -31,7 +31,8 @@ data requirements, ranking, rendering, and domain policy. See
 - **PEBBLE:** make document and section metadata easy to select without changing
   `pebble.v1` schema ownership.
 - **FLETCH:** slice manifests, cachelines, partitions, and quivers locally
-  without implying fetch/cache execution.
+  without implying fetch/cache execution; SLICE selects rows, FLETCH folds them
+  into cacheline/quiver plans.
 - **PROOF:** filter generated reports and CROP-backed slices without moving
   Markdown rendering or source fidelity into SLICE.
 - **ICELINES:** keep domain-friendly hockey query commands and aliases while
@@ -42,7 +43,8 @@ data requirements, ranking, rendering, and domain policy. See
 1. **Foundation** - create the Rust workspace, first selector grammar, CLI smoke
    path, docs, and repo operations scaffolding.
 2. **Adapters** - add optional adapters or examples for Pebble documents, CROP
-   units/views, and FLETCH manifests without pulling product policy into core.
+   units/views, and FLETCH manifests/partitions without pulling product policy
+   or FLETCH cacheline folding into core.
 3. **Diagnostics and planning** - improve parser spans, actionable diagnostics,
    and reusable explain output for agents and CLIs.
 4. **ICELINES-shaped IR experiment** - prototype an adapter for simple

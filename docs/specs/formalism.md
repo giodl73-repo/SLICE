@@ -137,6 +137,60 @@ blocks:
 For ICELINES specifically, SLICE can eventually reduce duplicated parsing and
 diagnostic work while leaving the advanced hockey logic in `icelines-query`.
 
+## FLETCH cacheline and partition folding
+
+FLETCH should be an early consumer, but cacheline intelligence belongs above
+`slice-core`.
+
+FLETCH already has domain objects that SLICE should not own: cache manifests,
+cache-index reports, active partition sets, registries, rollups, and quivers.
+The right split is:
+
+| Layer | Owns |
+|---|---|
+| `slice-core` | Parse, normalize, resolve, type-check, evaluate, and explain predicates over adapter-provided rows. |
+| FLETCH adapter/code | Map cache entries, partitions, registry rows, and quiver members into SLICE-visible fields. |
+| FLETCH planner | Decide which selected rows fold into cachelines, partitions, rollups, or quivers. |
+| FLETCH executor | Fetch, verify, promote, import/export, and enforce cache-index gates. |
+
+So a user-facing FLETCH query might become:
+
+```bash
+fletch cache slice --expr "dataset.id contains 'maxim' and verified eq true"
+fletch partition slice --expr "active eq true and dataset.id contains 'icelines'"
+```
+
+Internally, FLETCH can compile the SLICE expression once, evaluate it over
+manifest or partition rows, and then run FLETCH-owned folding:
+
+```text
+SLICE selector -> matching FLETCH rows -> FLETCH fold -> cacheline/quiver plan
+```
+
+The fold is intentionally not a SLICE operation. It depends on FLETCH concepts:
+cache keys, hashes, freshness, active partitions, aliases, labels, rollups,
+quiver membership, and gate policy. SLICE can expose generic hooks for a
+consumer to attach requirement summaries or cost hints, but the actual
+"which cachelines satisfy this partition?" decision stays in FLETCH.
+
+This makes SLICE useful without making it know everything.
+
+## Layer usefulness
+
+SLICE is more immediately useful for CROP, PEBBLE, and FLETCH than for ICELINES.
+
+| Consumer | Near-term usefulness | Why |
+|---|---|---|
+| CROP | High | It already has simple metadata/frontmatter predicates that can move to a shared parser after parity tests. |
+| PEBBLE | High | Metadata selection is schema-shaped and product-neutral. |
+| FLETCH | High | Manifest/cacheline/partition filters are structured rows; SLICE can replace narrow `slice_*` filters while FLETCH owns folding. |
+| PROOF | Medium | Useful later for generated report filters, but rendering/source fidelity are separate. |
+| ICELINES | Medium later, high as design reference now | Its query engine is rich and domain-specific; use it to shape the IR, but do not migrate it first. |
+
+The layering answer: SLICE should not know about everything. It should know how
+to represent and evaluate typed selector intent. Downstream systems should know
+how that intent maps to their artifacts, requirements, and execution plans.
+
 ## Near-term adoption rule
 
 Do not start by moving ICELINES wholesale onto SLICE. Start with the smallest
@@ -145,8 +199,10 @@ shared subset:
 1. Define a path catalog API in SLICE.
 2. Add range and set predicates to `slice-core`.
 3. Prove CROP/Pebble/FLETCH fixtures.
-4. Add an ICELINES adapter experiment for simple bio/stat filters only.
-5. Keep windows, career aggregation, similarity search, sorting, and data
+4. Add a FLETCH fixture that selects active partitions, then lets FLETCH fold the
+   selected rows into cacheline/quiver candidates.
+5. Add an ICELINES adapter experiment for simple bio/stat filters only.
+6. Keep windows, career aggregation, similarity search, sorting, and data
    requirements in ICELINES until the shared abstraction earns them.
 
 This keeps SLICE low-layer while still making the hard-won ICELINES query
