@@ -10,6 +10,8 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
 ## Migration order
 
 1. **CROP frontmatter query parity**
+   - Status: adopted in CROP commit `02006c9`; `frontmatter_query` now uses
+     `slice-core` for parsing, catalog validation, requirements, and evaluation.
    - Target: a narrow adapter for CROP metadata/frontmatter clauses that already
      look like row predicates.
    - SLICE owns: parsing, typed path validation, operator compatibility,
@@ -17,7 +19,8 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
    - CROP keeps: view recipes, graph cuts, link health, corpus status policy,
      prefix caches, output formats, and compatibility flags.
    - Gate: CROP's existing frontmatter-query fixtures pass through a SLICE
-     adapter with no behavior drift for supported clauses.
+     adapter with no behavior drift for supported clauses. This gate is met for
+     the current `eq`, `ne`, `has`, and `and` surface.
    - Local proof: `slice-mock-client` includes a CROP frontmatter parity adapter
      for top-level fields, array-like tag strings, and missing-field `ne`
      semantics.
