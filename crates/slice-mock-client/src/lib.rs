@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use serde_json::{json, Value};
-use slice_core::{FieldCatalog, ValueType};
+use slice_core::{ExplainReport, FieldCatalog, ValueType};
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct MockClientReport {
     pub schema: String,
     pub pebble: SelectionReport,
@@ -15,16 +15,18 @@ pub struct MockClientReport {
     pub passed: bool,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct SelectionReport {
     pub expression: String,
+    pub explain: ExplainReport,
     pub input_count: usize,
     pub selected_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct FletchSelectionReport {
     pub expression: String,
+    pub explain: ExplainReport,
     pub input_count: usize,
     pub selected_partition_ids: Vec<String>,
     pub quiver_candidates: Vec<QuiverCandidate>,
@@ -101,6 +103,7 @@ fn select_ids(
 
     Ok(SelectionReport {
         expression: expr.to_string(),
+        explain: selector.explain().clone(),
         input_count,
         selected_ids,
     })
@@ -127,6 +130,7 @@ fn select_fletch_partitions(
 
     Ok(FletchSelectionReport {
         expression: expr.to_string(),
+        explain: selector.explain().clone(),
         input_count,
         selected_partition_ids,
         quiver_candidates,
@@ -325,12 +329,15 @@ mod tests {
 
         assert!(report.passed, "{report:#?}");
         assert_eq!(report.pebble.selected_ids, ["pebble:guide"]);
+        assert_eq!(report.pebble.explain.clause_count, 2);
         assert_eq!(report.crop.selected_ids, ["crop:unit:frontmatter"]);
         assert_eq!(
             report.fletch.selected_partition_ids,
             ["partition:icelines:leaders"]
         );
+        assert_eq!(report.fletch.explain.fields[0].path, "active");
         assert_eq!(report.icelines.selected_ids, ["847-mock-swe-c"]);
+        assert_eq!(report.icelines.explain.fields[2].path, "stats.ppg");
     }
 
     #[test]

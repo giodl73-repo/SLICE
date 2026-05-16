@@ -213,5 +213,9 @@ Pulse 03 adds the first path catalog API and numeric comparison operators. Full
 range/set/pattern predicates remain future work, but adapters can now reject
 unknown paths and obvious operator/type mismatches before evaluating rows.
 
+Pulse 04 adds the first machine-readable explain report. It summarizes the
+resolved fields, value types, operators, and literals for a compiled selector.
+Requirement planning is still consumer-owned and remains future work.
+
 This keeps SLICE low-layer while still making the hard-won ICELINES query
 architecture reusable.

@@ -61,7 +61,11 @@ catalog
     .insert("metadata.status", slice_core::ValueType::String)
     .insert("stats.ppg", slice_core::ValueType::Number);
 let selector = slice_core::compile("metadata.status eq 'ready' and stats.ppg ge 0.8", &catalog)?;
+let explain = selector.explain();
 ```
+
+`explain` is machine-readable, so downstream CLIs and agents can show which
+fields, operators, and typed literals a selector depends on.
 
 ## Non-goals
 

@@ -50,12 +50,15 @@ data requirements, ranking, rendering, and domain policy. See
      in the client layer.
 3. **Typed catalogs** - add field catalogs and numeric comparisons so adapters
    can validate paths and operator/type compatibility before evaluation.
-4. **Diagnostics and planning** - improve parser spans, actionable diagnostics,
-   and reusable explain output for agents and CLIs.
-5. **ICELINES-shaped IR experiment** - prototype an adapter for simple
+4. **Explain reports** - emit machine-readable field/operator/literal summaries
+   for compiled selectors so agents and downstream CLIs can show what a selector
+   depends on.
+5. **Diagnostics and planning** - improve parser spans, actionable diagnostics,
+   and reusable requirement output for agents and CLIs.
+6. **ICELINES-shaped IR experiment** - prototype an adapter for simple
    ICELINES bio/stat filters while keeping hockey commands, stat catalogs,
    windows, career aggregation, similarity search, and ranking in ICELINES.
-6. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
+7. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
 
 ## Non-goals
 

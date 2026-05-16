@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use serde::Serialize;
 use serde_json::Value;
 use thiserror::Error;
 
@@ -44,7 +45,8 @@ pub struct Clause {
     literal: Literal,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Operator {
     Eq,
     Ne,
@@ -56,7 +58,8 @@ pub enum Operator {
     Le,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
 pub enum Literal {
     String(String),
     Number(f64),
@@ -64,7 +67,8 @@ pub enum Literal {
     Null,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ValueType {
     String,
     Number,
@@ -88,6 +92,22 @@ pub struct FieldCatalog {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledExpr {
     expr: Expr,
+    explain: ExplainReport,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ExplainReport {
+    pub schema: String,
+    pub clause_count: usize,
+    pub fields: Vec<ExplainField>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ExplainField {
+    pub path: String,
+    pub value_type: ValueType,
+    pub operator: Operator,
+    pub literal: Literal,
 }
 
 pub fn parse(source: &str) -> Result<Expr, SliceError> {
@@ -97,7 +117,8 @@ pub fn parse(source: &str) -> Result<Expr, SliceError> {
 pub fn compile(source: &str, catalog: &FieldCatalog) -> Result<CompiledExpr, SliceError> {
     let expr = parse(source)?;
     expr.validate(catalog)?;
-    Ok(CompiledExpr { expr })
+    let explain = expr.explain(catalog)?;
+    Ok(CompiledExpr { expr, explain })
 }
 
 impl FieldSpec {
@@ -140,6 +161,19 @@ impl Expr {
         }
         Ok(())
     }
+
+    pub fn explain(&self, catalog: &FieldCatalog) -> Result<ExplainReport, SliceError> {
+        let fields = self
+            .clauses
+            .iter()
+            .map(|clause| clause.explain(catalog))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(ExplainReport {
+            schema: "slice.explain.v1".to_string(),
+            clause_count: fields.len(),
+            fields,
+        })
+    }
 }
 
 impl CompiledExpr {
@@ -149,6 +183,10 @@ impl CompiledExpr {
 
     pub fn expr(&self) -> &Expr {
         &self.expr
+    }
+
+    pub fn explain(&self) -> &ExplainReport {
+        &self.explain
     }
 }
 
@@ -204,6 +242,19 @@ impl Clause {
         }
 
         Ok(())
+    }
+
+    fn explain(&self, catalog: &FieldCatalog) -> Result<ExplainField, SliceError> {
+        let path = self.path.join(".");
+        let Some(field) = catalog.get(&path) else {
+            return Err(SliceError::UnknownField { path });
+        };
+        Ok(ExplainField {
+            path,
+            value_type: field.value_type,
+            operator: self.op,
+            literal: self.literal.clone(),
+        })
     }
 }
 
@@ -562,6 +613,10 @@ mod tests {
 
         let compiled =
             compile("metadata.tags has 'context' and stats.ppg ge 0.8", &catalog).unwrap();
+
+        assert_eq!(compiled.explain().clause_count, 2);
+        assert_eq!(compiled.explain().fields[1].path, "stats.ppg");
+        assert_eq!(compiled.explain().fields[1].value_type, ValueType::Number);
 
         assert!(compiled.matches(&json!({
             "metadata": {"tags": ["context"], "status": "ready"},

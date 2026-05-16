@@ -8,5 +8,6 @@ repository.workspace = true
 description = "Product-neutral query and expression kernel for selecting typed artifacts."
 
 [dependencies]
+serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
