@@ -28,6 +28,9 @@ enum Command {
         /// Treat the input as Markdown tables and emit matching rows as JSONL.
         #[arg(long)]
         markdown_table: bool,
+        /// Comma-separated field paths to emit from matching rows.
+        #[arg(long, value_delimiter = ',')]
+        fields: Vec<String>,
     },
 }
 
@@ -39,11 +42,18 @@ fn main() -> Result<()> {
             input,
             jsonl,
             markdown_table,
-        } => run_eval(&expr, &input, jsonl, markdown_table),
+            fields,
+        } => run_eval(&expr, &input, jsonl, markdown_table, &fields),
     }
 }
 
-fn run_eval(expr: &str, input: &PathBuf, jsonl: bool, markdown_table: bool) -> Result<()> {
+fn run_eval(
+    expr: &str,
+    input: &PathBuf,
+    jsonl: bool,
+    markdown_table: bool,
+    fields: &[String],
+) -> Result<()> {
     if jsonl && markdown_table {
         anyhow::bail!("--jsonl and --markdown-table are mutually exclusive");
     }
@@ -54,7 +64,7 @@ fn run_eval(expr: &str, input: &PathBuf, jsonl: bool, markdown_table: bool) -> R
     if markdown_table {
         for row in markdown_table_rows(&content) {
             if expr.matches(&row) {
-                println!("{}", serde_json::to_string(&row)?);
+                print_row(&row, fields)?;
             }
         }
         return Ok(());
@@ -64,7 +74,7 @@ fn run_eval(expr: &str, input: &PathBuf, jsonl: bool, markdown_table: bool) -> R
         for line in content.lines().filter(|line| !line.trim().is_empty()) {
             let value: Value = serde_json::from_str(line).context("failed to parse JSONL row")?;
             if expr.matches(&value) {
-                println!("{}", serde_json::to_string(&value)?);
+                print_row(&value, fields)?;
             }
         }
         return Ok(());
@@ -75,17 +85,77 @@ fn run_eval(expr: &str, input: &PathBuf, jsonl: bool, markdown_table: bool) -> R
         Value::Array(items) => {
             for item in items {
                 if expr.matches(&item) {
-                    println!("{}", serde_json::to_string(&item)?);
+                    print_row(&item, fields)?;
                 }
             }
         }
         item if expr.matches(&item) => {
-            println!("{}", serde_json::to_string(&item)?);
+            print_row(&item, fields)?;
         }
         _ => {}
     }
 
     Ok(())
+}
+
+fn print_row(row: &Value, fields: &[String]) -> Result<()> {
+    let output = if fields.is_empty() {
+        row.clone()
+    } else {
+        project_fields(row, fields)
+    };
+    println!("{}", serde_json::to_string(&output)?);
+    Ok(())
+}
+
+fn project_fields(row: &Value, fields: &[String]) -> Value {
+    let mut output = serde_json::Map::new();
+    for field in fields {
+        let path = field
+            .split('.')
+            .filter(|segment| !segment.trim().is_empty())
+            .collect::<Vec<_>>();
+        if path.is_empty() {
+            continue;
+        }
+        if let Some(value) = lookup_path(row, &path) {
+            insert_projected_value(&mut output, &path, value.clone());
+        }
+    }
+    Value::Object(output)
+}
+
+fn lookup_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in path {
+        current = match current {
+            Value::Object(object) => object.get(*segment)?,
+            _ => return None,
+        };
+    }
+    Some(current)
+}
+
+fn insert_projected_value(
+    object: &mut serde_json::Map<String, Value>,
+    path: &[&str],
+    value: Value,
+) {
+    if let Some((head, tail)) = path.split_first() {
+        if tail.is_empty() {
+            object.insert((*head).to_string(), value);
+            return;
+        }
+        let entry = object
+            .entry((*head).to_string())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        if !entry.is_object() {
+            *entry = Value::Object(serde_json::Map::new());
+        }
+        if let Value::Object(child) = entry {
+            insert_projected_value(child, tail, value);
+        }
+    }
 }
 
 fn markdown_table_rows(content: &str) -> Vec<Value> {
@@ -219,5 +289,54 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(selected, ["CROP"]);
+    }
+
+    #[test]
+    fn project_fields_keeps_requested_nested_paths() {
+        let value = serde_json::json!({
+            "metadata": {
+                "status": "ready",
+                "tags": ["context"],
+            },
+            "source": "example.md",
+        });
+
+        let projected = project_fields(
+            &value,
+            &[
+                "metadata.status".to_string(),
+                "source".to_string(),
+                "missing".to_string(),
+            ],
+        );
+
+        assert_eq!(
+            projected,
+            serde_json::json!({
+                "metadata": {
+                    "status": "ready",
+                },
+                "source": "example.md",
+            })
+        );
+    }
+
+    #[test]
+    fn project_fields_supports_flat_markdown_table_rows() {
+        let value = serde_json::json!({
+            "slice_layer": "CLI smoke/evaluation",
+            "tracker": "[x]",
+            "notes": "ready",
+        });
+
+        let projected = project_fields(&value, &["slice_layer".to_string(), "tracker".to_string()]);
+
+        assert_eq!(
+            projected,
+            serde_json::json!({
+                "slice_layer": "CLI smoke/evaluation",
+                "tracker": "[x]",
+            })
+        );
     }
 }

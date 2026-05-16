@@ -23,7 +23,8 @@ The first contract is intentionally small:
 - substring/object membership: `field contains 'value'`;
 - conjunctions with `and`;
 - optional typed field catalogs before evaluation;
-- CLI adapters for JSON arrays, JSONL rows, and Markdown tables.
+- CLI adapters for JSON arrays, JSONL rows, and Markdown tables;
+- CLI projection with `--fields` for emitting only selected row fields.
 
 ```bash
 slice eval --expr "metadata.tags has 'context' and metadata.status eq 'ready'" --input examples/pebble.json
@@ -33,6 +34,12 @@ Markdown planning tables can be selected directly and emitted as JSONL rows:
 
 ```bash
 slice eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
+```
+
+Use `--fields` to project matching rows for scripts and planning reports:
+
+```bash
+slice eval --markdown-table --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker,notes
 ```
 
 ## Formalism
@@ -103,6 +110,7 @@ cargo fmt --check
 cargo test
 cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/pebble.json
 cargo run -p slice-cli -- eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
+cargo run -p slice-cli -- eval --markdown-table --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
 cargo run -p slice-mock-client
 ```
 
