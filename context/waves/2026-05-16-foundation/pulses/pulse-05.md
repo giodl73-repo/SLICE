@@ -15,9 +15,9 @@ CROP graph, corpus-health, status, prefix-cache, or view policy into
 ## Follow-on order
 
 1. CROP frontmatter query parity.
-2. Pebble metadata selector examples.
+2. Mdport metadata selector examples.
 3. FLETCH manifest and partition selectors.
-4. PROOF report and CROP-backed slice filters.
+4. MDLOOM report and CROP-backed slice filters.
 5. ICELINES simple bio/stat adapter.
 
 ## Validation

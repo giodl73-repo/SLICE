@@ -9,7 +9,7 @@ show which typed fields, operators, and literals a compiled selector depends on.
 
 - Add `ExplainReport` and `ExplainField` to `slice-core`.
 - Store explain output on `CompiledExpr`.
-- Include explain reports in `slice-mock-client` output for Pebble, CROP,
+- Include explain reports in `slice-mock-client` output for Mdport, CROP,
   FLETCH, and ICELINES-shaped selectors.
 - Keep explain output product-neutral: no graph cuts, cache folding, ranking, or
   hockey semantics in `slice-core`.
@@ -19,7 +19,7 @@ show which typed fields, operators, and literals a compiled selector depends on.
 - `cargo fmt --check`
 - `cargo test`
 - `cargo run -p slice-mock-client`
-- `cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/pebble.json`
+- `cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/mdport.json`
 - `git diff --check`
 
 ## Status

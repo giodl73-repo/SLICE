@@ -7,7 +7,7 @@ Scope: `README.md`, `PRODUCT_PLAN.md`, and
 
 PASS WITH FOLLOW-UPS. The plan correctly positions SLICE as a low-layer,
 product-neutral query/expression dependency. The main follow-up is to keep
-consumer adoption evidence-driven: prove CROP/Pebble/FLETCH fixtures before
+consumer adoption evidence-driven: prove CROP/Mdport/FLETCH fixtures before
 making runtime dependencies broad.
 
 ## Parliament review
@@ -15,7 +15,7 @@ making runtime dependencies broad.
 | Role | Finding | Action |
 |---|---|---|
 | Expression Kernel Keeper | PASS. The first grammar is intentionally small: paths, `eq`, `ne`, `has`, `contains`, and `and`. | Do not add broader language features until at least two consumers need them. |
-| Adapter Boundary Keeper | PASS. The plan keeps product schemas in adapters/downstream repos and keeps `slice-core` product-neutral. | Keep Pebble/CROP/FLETCH examples as fixtures or optional adapters, not core policy. |
+| Adapter Boundary Keeper | PASS. The plan keeps product schemas in adapters/downstream repos and keeps `slice-core` product-neutral. | Keep Mdport/CROP/FLETCH examples as fixtures or optional adapters, not core policy. |
 | Diagnostics Auditor | NEEDS FOLLOW-UP. Parser errors have offsets, but the plan does not yet require invalid-example docs or machine-readable explain output. | Wave 03 should add invalid examples and explain output acceptance criteria. |
 | Performance Engineer | NEEDS FOLLOW-UP. The plan names local artifact scans, but no benchmark fixtures or streaming targets exist yet. | Wave 02 should include JSON/JSONL fixture sizes and a bounded-memory CLI check. |
 
@@ -32,9 +32,9 @@ making runtime dependencies broad.
 | Stakeholder | Finding | Action |
 |---|---|---|
 | CROP View Author | PASS WITH RISK. CROP is the strongest first adopter because it already has `frontmatter_query`. | First adoption should be parity-only before expanding syntax. |
-| Pebble Pack Consumer | PASS. Pebble metadata selectors are a clean example as long as SLICE does not own `pebble.v1`. | Add document and section metadata fixtures in Wave 02. |
+| Mdport Pack Consumer | PASS. Mdport metadata selectors are a clean example as long as SLICE does not own `mdport.v1`. | Add document and section metadata fixtures in Wave 02. |
 | FLETCH Manifest User | PASS. Manifest/cacheline slicing fits SLICE's low-layer role. | Start with JSON fixtures before linking FLETCH runtime crates. |
-| PROOF Report Author | PASS. Report filtering is a plausible later use; rendering stays out of SLICE. | Keep PROOF adoption later than CROP/Pebble/FLETCH examples. |
+| MDLOOM Report Author | PASS. Report filtering is a plausible later use; rendering stays out of SLICE. | Keep MDLOOM adoption later than CROP/Mdport/FLETCH examples. |
 | ICELINES Query User | PASS. There is an explicit ICELINES POV: keep `icelines query` domain-friendly and reuse only low-level expression pieces. | Do not replace ICELINES command UX with raw SLICE expressions; use ICELINES as an ergonomics reference. |
 
 ## ICELINES POV

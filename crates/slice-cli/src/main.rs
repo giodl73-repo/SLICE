@@ -850,9 +850,9 @@ mod tests {
     #[test]
     fn emit_rows_sorts_offsets_limits_and_projects() {
         let mut rows = vec![
-            serde_json::json!({"repo": "PEBBLE", "priority": 2}),
+            serde_json::json!({"repo": "MDPORT", "priority": 2}),
             serde_json::json!({"repo": "CROP", "priority": 1}),
-            serde_json::json!({"repo": "PROOF", "priority": 3}),
+            serde_json::json!({"repo": "MDLOOM", "priority": 3}),
         ];
         let path = split_field_path("priority");
         rows.sort_by(|left, right| compare_path_values(left, right, &path));
@@ -863,7 +863,7 @@ mod tests {
             .map(|row| project_fields(&row, &["repo".to_string()]))
             .collect::<Vec<_>>();
 
-        assert_eq!(selected, vec![serde_json::json!({"repo": "PEBBLE"})]);
+        assert_eq!(selected, vec![serde_json::json!({"repo": "MDPORT"})]);
     }
 
     #[test]

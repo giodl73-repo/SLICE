@@ -18,7 +18,7 @@ rows, by selecting Markdown table rows directly from TRACKER and wave docs.
 
 - SLICE: `cargo test -p slice-cli`
 - SLICE: `cargo test`
-- SLICE: `cargo run -q -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples\pebble.json`
+- SLICE: `cargo run -q -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples\mdport.json`
 - SLICE: `cargo run -q -p slice-cli -- eval --markdown-table --expr "icelines eq '[x]'" --input C:\src\TRACKER\dependency-systems\slice-usage.md`
 - SLICE: `git diff --check`
 

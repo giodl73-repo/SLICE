@@ -1,15 +1,15 @@
 ---
-name: Pebble Pack Consumer
-slug: pebble-pack-consumer
+name: Mdport Pack Consumer
+slug: mdport-pack-consumer
 tier: stakeholder
 primary_concern: portable metadata selectors
 ---
 
-# Pebble Pack Consumer
+# Mdport Pack Consumer
 
 ## Primary concerns
 
-- Pebble document and section metadata should be easy to select.
-- SLICE should not change `pebble.v1` schema ownership.
+- Mdport document and section metadata should be easy to select.
+- SLICE should not change `mdport.v1` schema ownership.
 - Compact JSON fixtures should remain valid selector inputs.
 - Provenance and metadata selectors should be explainable for agents.

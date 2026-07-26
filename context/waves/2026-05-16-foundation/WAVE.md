@@ -8,7 +8,7 @@ operations scaffolding.
 
 ## Thesis
 
-If FLETCH, CROP, PEBBLE, PROOF, and domain CLIs share one expression kernel,
+If FLETCH, CROP, MDPORT, MDLOOM, and domain CLIs share one expression kernel,
 they can exchange filters and artifact slices without each repo inventing a
 new predicate language.
 
@@ -17,7 +17,7 @@ new predicate language.
 | Pulse | Title | Status | Outcome |
 |------:|-------|--------|---------|
 | 01 | Workspace foundation | done | Created repo skeleton, docs, skills, and first tested contract. |
-| 02 | Pebble/CROP/FLETCH examples | done | Added `slice-mock-client` to prove selectors over representative artifact shapes and downstream FLETCH folding. |
+| 02 | Mdport/CROP/FLETCH examples | done | Added `slice-mock-client` to prove selectors over representative artifact shapes and downstream FLETCH folding. |
 | 03 | Typed path catalogs | done | Added numeric comparisons and field catalogs so mock adapters validate selector paths and value types. |
 | 04 | Explain reports | done | Added machine-readable explain reports for compiled selectors and mock-client output. |
 | 05 | Consumer migration plan | done | Chose CROP frontmatter-query parity as the first real adoption surface and recorded downstream boundaries. |
@@ -25,12 +25,12 @@ new predicate language.
 | 07 | Requirement reports | done | Added deduplicated typed field requirements for adapter materialization. |
 | 08 | CROP parity mock | done | Proved CROP frontmatter-query behavior in the mock client without moving CROP policy into core. |
 | 09 | First consumer adoption | done | CROP adopted `slice-core` for `frontmatter_query` while keeping view and graph policy local. |
-| 10 | PEBBLE selector examples | done | PEBBLE added dev-only SLICE tests for document and section metadata selectors. |
+| 10 | MDPORT selector examples | done | MDPORT added dev-only SLICE tests for document and section metadata selectors. |
 | 11 | FLETCH selector examples | done | FLETCH added dev-only SLICE tests for cache-index and active-partition selectors. |
-| 12 | PROOF selector examples | done | PROOF added dev-only SLICE tests for artifact manifest row selectors. |
+| 12 | MDLOOM selector examples | done | MDLOOM added dev-only SLICE tests for artifact manifest row selectors. |
 | 13 | ICELINES selector examples | done | ICELINES added dev-only SLICE tests for simple player bio/stat row predicates while keeping hockey query semantics local. |
-| 14 | PEBBLE optional runtime selectors | done | PEBBLE added a feature-gated SLICE selector helper for document and section metadata rows. |
-| 15 | PROOF artifact runtime selectors | done | PROOF added a SLICE-backed artifact manifest selector helper over prepared compile report rows. |
+| 14 | MDPORT optional runtime selectors | done | MDPORT added a feature-gated SLICE selector helper for document and section metadata rows. |
+| 15 | MDLOOM artifact runtime selectors | done | MDLOOM added a SLICE-backed artifact manifest selector helper over prepared compile report rows. |
 | 16 | FLETCH row runtime selectors | done | FLETCH added SLICE-backed helpers for cache-index and active-partition rows while keeping fetch/cache and quiver policy local. |
 | 17 | ICELINES prepared-row runtime selectors | done | ICELINES added SLICE-backed helpers for prepared player bio/stat rows while keeping hockey query semantics local. |
 | 18 | Markdown table selectors | done | `slice eval` can select Markdown table rows as JSONL, giving TRACKER and wave docs a shared planning selector path. |

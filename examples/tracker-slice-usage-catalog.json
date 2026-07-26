@@ -3,9 +3,9 @@
     "slice_layer": "string",
     "intended_use": "string",
     "crop": "string",
-    "pebble": "string",
+    "mdport": "string",
     "fletch": "string",
-    "proof": "string",
+    "mdloom": "string",
     "icelines": "string",
     "tracker": "string",
     "notes": "string"

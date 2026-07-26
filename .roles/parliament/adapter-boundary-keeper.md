@@ -9,8 +9,8 @@ applies_to: [adapters, consumer-integration, slice-core]
 
 ## Intellectual Disposition
 
-This role keeps product schemas out of `slice-core`. CROP, FLETCH, PEBBLE,
-PROOF, and ICELINES should adapt their own records into values; SLICE should not
+This role keeps product schemas out of `slice-core`. CROP, FLETCH, MDPORT,
+MDLOOM, and ICELINES should adapt their own records into values; SLICE should not
 learn their policy.
 
 ## Key Question

@@ -35,7 +35,7 @@ SLICE owns four product-neutral concepts.
 | `EvalContext` | Read-only evaluation settings and provider hooks. | ICELINES season/today/provider, CROP view root, FLETCH manifest scope. |
 
 The invariant: `slice-core` can parse, type-check, explain, and evaluate these
-concepts without knowing hockey, graph cuts, Pebble schema policy, cache
+concepts without knowing hockey, graph cuts, Mdport schema policy, cache
 freshness, or Markdown rendering.
 
 ## Optional SQLite workbench
@@ -148,7 +148,7 @@ blocks:
 - one typed predicate model for equality, membership, ranges, and patterns;
 - one diagnostics shape for parse/type/evaluation failures;
 - one explain shape agents can read;
-- one compiled selector that can run over JSON, Pebble sections, CROP units,
+- one compiled selector that can run over JSON, Mdport sections, CROP units,
   FLETCH manifests, and ICELINES adapter rows;
 - one place to benchmark selector performance.
 
@@ -195,14 +195,14 @@ This makes SLICE useful without making it know everything.
 
 ## Layer usefulness
 
-SLICE is more immediately useful for CROP, PEBBLE, and FLETCH than for ICELINES.
+SLICE is more immediately useful for CROP, MDPORT, and FLETCH than for ICELINES.
 
 | Consumer | Near-term usefulness | Why |
 |---|---|---|
 | CROP | High | It already has simple metadata/frontmatter predicates that can move to a shared parser after parity tests. |
-| PEBBLE | High | Metadata selection is schema-shaped and product-neutral. |
+| MDPORT | High | Metadata selection is schema-shaped and product-neutral. |
 | FLETCH | High | Manifest/cacheline/partition filters are structured rows; SLICE can replace narrow `slice_*` filters while FLETCH owns folding. |
-| PROOF | Medium | Useful later for generated report filters, but rendering/source fidelity are separate. |
+| MDLOOM | Medium | Useful later for generated report filters, but rendering/source fidelity are separate. |
 | ICELINES | Medium later, high as design reference now | Its query engine is rich and domain-specific; use it to shape the IR, but do not migrate it first. |
 
 The layering answer: SLICE should not know about everything. It should know how
@@ -216,7 +216,7 @@ shared subset:
 
 1. Define a path catalog API in SLICE.
 2. Add range and set predicates to `slice-core`.
-3. Prove CROP/Pebble/FLETCH fixtures.
+3. Prove CROP/Mdport/FLETCH fixtures.
 4. Add a FLETCH fixture that selects active partitions, then lets FLETCH fold the
    selected rows into cacheline/quiver candidates.
 5. Add an ICELINES adapter experiment for simple bio/stat filters only.

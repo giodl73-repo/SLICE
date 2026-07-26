@@ -19,7 +19,7 @@ compatibility before evaluating rows.
 - `cargo fmt --check`
 - `cargo test`
 - `cargo run -p slice-mock-client`
-- `cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/pebble.json`
+- `cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/mdport.json`
 - `git diff --check`
 
 ## Status

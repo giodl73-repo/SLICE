@@ -8,7 +8,7 @@ representative consumer-shaped artifacts.
 ## Changes
 
 - Add `slice-mock-client` workspace crate.
-- Validate Pebble-shaped metadata selection.
+- Validate Mdport-shaped metadata selection.
 - Validate CROP-like evidence unit metadata selection.
 - Validate FLETCH-like active partition selection and keep quiver folding in the
   mock client layer.
@@ -20,7 +20,7 @@ representative consumer-shaped artifacts.
 - `cargo fmt --check`
 - `cargo test`
 - `cargo run -p slice-mock-client`
-- `cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/pebble.json`
+- `cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/mdport.json`
 - `git diff --check`
 
 ## Status

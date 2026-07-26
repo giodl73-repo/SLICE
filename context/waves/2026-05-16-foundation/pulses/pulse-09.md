@@ -21,7 +21,7 @@ Validated in CROP:
 
 - `cargo fmt --check`
 - `cargo test --workspace`
-- `cargo run -p crop-cli -- view --file examples\proof-fixture\proof-ready-view.json`
+- `cargo run -p crop-cli -- view --file examples\mdloom-fixture\mdloom-ready-view.json`
 - `git diff --check`
 
 ## Status

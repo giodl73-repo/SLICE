@@ -12,7 +12,7 @@ use slice_core::{
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct MockClientReport {
     pub schema: String,
-    pub pebble: SelectionReport,
+    pub mdport: SelectionReport,
     pub crop: SelectionReport,
     pub crop_frontmatter_parity: CropFrontmatterParityReport,
     pub fletch: FletchSelectionReport,
@@ -74,11 +74,11 @@ pub struct QuiverCandidate {
 }
 
 pub fn run_mock_client() -> Result<MockClientReport> {
-    let pebble = select_ids(
+    let mdport = select_ids(
         "metadata.tags has 'context' and metadata.status eq 'ready'",
-        pebble_rows(),
+        mdport_rows(),
         "id",
-        pebble_catalog(),
+        mdport_catalog(),
     )?;
     let crop = select_ids(
         "metadata.tags has 'frontmatter' and metadata.status eq 'ready'",
@@ -104,7 +104,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
     let icelines_sqlite = select_icelines_sqlite_folded()?;
     let icelines_sqlite_runtime = inspect_icelines_sqlite_runtime()?;
 
-    let passed = pebble.selected_ids == ["pebble:guide"]
+    let passed = mdport.selected_ids == ["mdport:guide"]
         && crop.selected_ids == ["crop:unit:frontmatter"]
         && crop_frontmatter_parity.selected_sources == ["maxim/systems.md"]
         && fletch.selected_partition_ids == ["partition:icelines:leaders"]
@@ -121,7 +121,7 @@ pub fn run_mock_client() -> Result<MockClientReport> {
 
     Ok(MockClientReport {
         schema: "slice.mock-client.v1".to_string(),
-        pebble,
+        mdport,
         crop,
         crop_frontmatter_parity,
         fletch,
@@ -468,7 +468,7 @@ fn string_path(row: &Value, path: &[String]) -> Result<String> {
         .with_context(|| format!("path {:?} is not a string in {row}", path))
 }
 
-fn pebble_catalog() -> FieldCatalog {
+fn mdport_catalog() -> FieldCatalog {
     let mut catalog = FieldCatalog::new();
     catalog
         .insert("metadata.tags", ValueType::Array)
@@ -522,11 +522,11 @@ fn icelines_sqlite_fold_catalog() -> FoldCatalog {
     catalog
 }
 
-fn pebble_rows() -> Vec<Value> {
+fn mdport_rows() -> Vec<Value> {
     vec![
         json!({
-            "id": "pebble:guide",
-            "schema": "pebble.v1",
+            "id": "mdport:guide",
+            "schema": "mdport.v1",
             "kind": "document",
             "metadata": {
                 "status": "ready",
@@ -534,8 +534,8 @@ fn pebble_rows() -> Vec<Value> {
             }
         }),
         json!({
-            "id": "pebble:draft",
-            "schema": "pebble.v1",
+            "id": "mdport:draft",
+            "schema": "mdport.v1",
             "kind": "document",
             "metadata": {
                 "status": "draft",
@@ -672,9 +672,9 @@ mod tests {
         let report = run_mock_client().unwrap();
 
         assert!(report.passed, "{report:#?}");
-        assert_eq!(report.pebble.selected_ids, ["pebble:guide"]);
-        assert_eq!(report.pebble.explain.clause_count, 2);
-        assert_eq!(report.pebble.requirements.field_count, 2);
+        assert_eq!(report.mdport.selected_ids, ["mdport:guide"]);
+        assert_eq!(report.mdport.explain.clause_count, 2);
+        assert_eq!(report.mdport.requirements.field_count, 2);
         assert_eq!(report.crop.selected_ids, ["crop:unit:frontmatter"]);
         assert_eq!(
             report.crop_frontmatter_parity.selected_sources,
