@@ -13,8 +13,8 @@ use slice_core::{
 pub struct MockClientReport {
     pub schema: String,
     pub mdport: SelectionReport,
-    pub crop: SelectionReport,
-    pub crop_frontmatter_parity: CropFrontmatterParityReport,
+    pub mdcrop: SelectionReport,
+    pub mdcrop_frontmatter_parity: MdcropFrontmatterParityReport,
     pub fletch: FletchSelectionReport,
     pub icelines: SelectionReport,
     pub icelines_sqlite: SqliteFoldSelectionReport,
@@ -42,7 +42,7 @@ pub struct FletchSelectionReport {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct CropFrontmatterParityReport {
+pub struct MdcropFrontmatterParityReport {
     pub expression: String,
     pub explain: ExplainReport,
     pub requirements: RequirementReport,
@@ -80,15 +80,15 @@ pub fn run_mock_client() -> Result<MockClientReport> {
         "id",
         mdport_catalog(),
     )?;
-    let crop = select_ids(
+    let mdcrop = select_ids(
         "metadata.tags has 'frontmatter' and metadata.status eq 'ready'",
-        crop_rows(),
+        mdcrop_rows(),
         "id",
-        crop_catalog(),
+        mdcrop_catalog(),
     )?;
-    let crop_frontmatter_parity = select_crop_frontmatter_sources(
+    let mdcrop_frontmatter_parity = select_mdcrop_frontmatter_sources(
         "tags has 'computing' and status eq 'ready' and owner ne 'docs'",
-        crop_frontmatter_rows(),
+        mdcrop_frontmatter_rows(),
     )?;
     let fletch = select_fletch_partitions(
         "active eq true and dataset.id contains 'icelines'",
@@ -105,8 +105,8 @@ pub fn run_mock_client() -> Result<MockClientReport> {
     let icelines_sqlite_runtime = inspect_icelines_sqlite_runtime()?;
 
     let passed = mdport.selected_ids == ["mdport:guide"]
-        && crop.selected_ids == ["crop:unit:frontmatter"]
-        && crop_frontmatter_parity.selected_sources == ["maxim/systems.md"]
+        && mdcrop.selected_ids == ["mdcrop:unit:frontmatter"]
+        && mdcrop_frontmatter_parity.selected_sources == ["maxim/systems.md"]
         && fletch.selected_partition_ids == ["partition:icelines:leaders"]
         && fletch.quiver_candidates
             == [QuiverCandidate {
@@ -122,8 +122,8 @@ pub fn run_mock_client() -> Result<MockClientReport> {
     Ok(MockClientReport {
         schema: "slice.mock-client.v1".to_string(),
         mdport,
-        crop,
-        crop_frontmatter_parity,
+        mdcrop,
+        mdcrop_frontmatter_parity,
         fletch,
         icelines,
         icelines_sqlite,
@@ -186,13 +186,13 @@ fn select_fletch_partitions(
     })
 }
 
-fn select_crop_frontmatter_sources(
+fn select_mdcrop_frontmatter_sources(
     expr: &str,
-    rows: Vec<CropFrontmatterRow>,
-) -> Result<CropFrontmatterParityReport> {
-    let catalog = crop_frontmatter_catalog(expr)?;
+    rows: Vec<MdcropFrontmatterRow>,
+) -> Result<MdcropFrontmatterParityReport> {
+    let catalog = mdcrop_frontmatter_catalog(expr)?;
     let selector = slice_core::compile(expr, &catalog)
-        .with_context(|| format!("failed to compile CROP frontmatter expression {expr:?}"))?;
+        .with_context(|| format!("failed to compile MDCROP frontmatter expression {expr:?}"))?;
     let input_count = rows.len();
     let required_paths = selector
         .requirements()
@@ -203,12 +203,12 @@ fn select_crop_frontmatter_sources(
     let selected_sources = rows
         .iter()
         .filter_map(|row| {
-            let value = materialize_crop_frontmatter_row(row, &required_paths);
+            let value = materialize_mdcrop_frontmatter_row(row, &required_paths);
             selector.matches(&value).then(|| row.source.clone())
         })
         .collect::<Vec<_>>();
 
-    Ok(CropFrontmatterParityReport {
+    Ok(MdcropFrontmatterParityReport {
         expression: expr.to_string(),
         explain: selector.explain().clone(),
         requirements: selector.requirements().clone(),
@@ -370,9 +370,9 @@ fn sql_value(literal: &Literal) -> Result<SqlValue> {
     }
 }
 
-fn crop_frontmatter_catalog(expr: &str) -> Result<FieldCatalog> {
+fn mdcrop_frontmatter_catalog(expr: &str) -> Result<FieldCatalog> {
     let parsed = slice_core::parse(expr)
-        .with_context(|| format!("failed to parse CROP frontmatter expression {expr:?}"))?;
+        .with_context(|| format!("failed to parse MDCROP frontmatter expression {expr:?}"))?;
     let mut catalog = FieldCatalog::new();
     for clause in parsed.clauses() {
         let path = clause.path().join(".");
@@ -396,20 +396,23 @@ fn crop_frontmatter_catalog(expr: &str) -> Result<FieldCatalog> {
     Ok(catalog)
 }
 
-fn materialize_crop_frontmatter_row(row: &CropFrontmatterRow, required_paths: &[&str]) -> Value {
+fn materialize_mdcrop_frontmatter_row(
+    row: &MdcropFrontmatterRow,
+    required_paths: &[&str],
+) -> Value {
     let mut object = Map::new();
     for path in required_paths {
         let value = row
             .fields
             .get(*path)
-            .map(|field| crop_frontmatter_value(field))
+            .map(|field| mdcrop_frontmatter_value(field))
             .unwrap_or(Value::Null);
         object.insert((*path).to_string(), value);
     }
     Value::Object(object)
 }
 
-fn crop_frontmatter_value(value: &str) -> Value {
+fn mdcrop_frontmatter_value(value: &str) -> Value {
     let trimmed = value.trim();
     if let Some(inner) = trimmed
         .strip_prefix('[')
@@ -446,7 +449,7 @@ fn fold_fletch_rows_into_quiver_candidates(rows: &[Value]) -> Result<Vec<QuiverC
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct CropFrontmatterRow {
+struct MdcropFrontmatterRow {
     source: String,
     fields: BTreeMap<String, String>,
 }
@@ -476,7 +479,7 @@ fn mdport_catalog() -> FieldCatalog {
     catalog
 }
 
-fn crop_catalog() -> FieldCatalog {
+fn mdcrop_catalog() -> FieldCatalog {
     let mut catalog = FieldCatalog::new();
     catalog
         .insert("metadata.tags", ValueType::Array)
@@ -545,10 +548,10 @@ fn mdport_rows() -> Vec<Value> {
     ]
 }
 
-fn crop_rows() -> Vec<Value> {
+fn mdcrop_rows() -> Vec<Value> {
     vec![
         json!({
-            "id": "crop:unit:frontmatter",
+            "id": "mdcrop:unit:frontmatter",
             "kind": "evidence-unit",
             "metadata": {
                 "status": "ready",
@@ -556,7 +559,7 @@ fn crop_rows() -> Vec<Value> {
             }
         }),
         json!({
-            "id": "crop:unit:body",
+            "id": "mdcrop:unit:body",
             "kind": "evidence-unit",
             "metadata": {
                 "status": "ready",
@@ -566,9 +569,9 @@ fn crop_rows() -> Vec<Value> {
     ]
 }
 
-fn crop_frontmatter_rows() -> Vec<CropFrontmatterRow> {
+fn mdcrop_frontmatter_rows() -> Vec<MdcropFrontmatterRow> {
     vec![
-        crop_frontmatter_row(
+        mdcrop_frontmatter_row(
             "maxim/systems.md",
             &[
                 ("tags", "[computing, systems]"),
@@ -576,16 +579,16 @@ fn crop_frontmatter_rows() -> Vec<CropFrontmatterRow> {
                 ("version", "1.0"),
             ],
         ),
-        crop_frontmatter_row(
+        mdcrop_frontmatter_row(
             "maxim/draft.md",
             &[("tags", "[computing]"), ("status", "draft")],
         ),
-        crop_frontmatter_row("maxim/math.md", &[("tags", "[math]"), ("status", "ready")]),
+        mdcrop_frontmatter_row("maxim/math.md", &[("tags", "[math]"), ("status", "ready")]),
     ]
 }
 
-fn crop_frontmatter_row(source: &str, fields: &[(&str, &str)]) -> CropFrontmatterRow {
-    CropFrontmatterRow {
+fn mdcrop_frontmatter_row(source: &str, fields: &[(&str, &str)]) -> MdcropFrontmatterRow {
+    MdcropFrontmatterRow {
         source: source.to_string(),
         fields: fields
             .iter()
@@ -675,13 +678,13 @@ mod tests {
         assert_eq!(report.mdport.selected_ids, ["mdport:guide"]);
         assert_eq!(report.mdport.explain.clause_count, 2);
         assert_eq!(report.mdport.requirements.field_count, 2);
-        assert_eq!(report.crop.selected_ids, ["crop:unit:frontmatter"]);
+        assert_eq!(report.mdcrop.selected_ids, ["mdcrop:unit:frontmatter"]);
         assert_eq!(
-            report.crop_frontmatter_parity.selected_sources,
+            report.mdcrop_frontmatter_parity.selected_sources,
             ["maxim/systems.md"]
         );
         assert_eq!(
-            report.crop_frontmatter_parity.requirements.fields[1].path,
+            report.mdcrop_frontmatter_parity.requirements.fields[1].path,
             "status"
         );
         assert_eq!(
@@ -710,10 +713,10 @@ mod tests {
     }
 
     #[test]
-    fn crop_frontmatter_parity_preserves_missing_ne() {
-        let report = select_crop_frontmatter_sources(
+    fn mdcrop_frontmatter_parity_preserves_missing_ne() {
+        let report = select_mdcrop_frontmatter_sources(
             "owner ne 'docs'",
-            vec![crop_frontmatter_row(
+            vec![mdcrop_frontmatter_row(
                 "docs/without-owner.md",
                 &[("status", "ready")],
             )],

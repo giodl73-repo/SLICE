@@ -9,7 +9,7 @@ representative consumer-shaped artifacts.
 
 - Add `slice-mock-client` workspace crate.
 - Validate Mdport-shaped metadata selection.
-- Validate CROP-like evidence unit metadata selection.
+- Validate MDCROP-like evidence unit metadata selection.
 - Validate FLETCH-like active partition selection and keep quiver folding in the
   mock client layer.
 - Validate an ICELINES-like player row selector without replacing ICELINES query

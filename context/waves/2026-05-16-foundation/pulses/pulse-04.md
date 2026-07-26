@@ -9,7 +9,7 @@ show which typed fields, operators, and literals a compiled selector depends on.
 
 - Add `ExplainReport` and `ExplainField` to `slice-core`.
 - Store explain output on `CompiledExpr`.
-- Include explain reports in `slice-mock-client` output for Mdport, CROP,
+- Include explain reports in `slice-mock-client` output for Mdport, MDCROP,
   FLETCH, and ICELINES-shaped selectors.
 - Keep explain output product-neutral: no graph cuts, cache folding, ranking, or
   hockey semantics in `slice-core`.

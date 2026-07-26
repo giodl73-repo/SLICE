@@ -13,7 +13,7 @@ MDLOOM commit `6737d8c` added dev-only `slice-core` tests that select
 
 SLICE only selects prepared rows. MDLOOM keeps source fidelity, directives,
 compile graph, artifact manifests, diagnostics, Markdown/HTML/Mdport rendering,
-and CROP wrapper behavior.
+and MDCROP wrapper behavior.
 
 ## Validation
 

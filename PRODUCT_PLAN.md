@@ -2,14 +2,14 @@
 
 ## Thesis
 
-Portfolio repos already need reusable selectors: CROP view filters, Mdport
+Portfolio repos already need reusable selectors: MDCROP view filters, Mdport
 metadata predicates, FLETCH manifest slices, MDLOOM report filters, and ICELINES
 query surfaces. SLICE extracts the shared expression kernel so each repo can
 reuse one low-layer contract while keeping product semantics local.
 
 ## Dependency placement
 
-SLICE is a shared dependency below FLETCH, CROP, MDPORT, MDLOOM, and domain CLIs.
+SLICE is a shared dependency below FLETCH, MDCROP, MDPORT, MDLOOM, and domain CLIs.
 It should depend only on stable parsing/evaluation crates and common data types.
 Consumers adapt their own records into SLICE values.
 
@@ -26,14 +26,14 @@ data requirements, ranking, rendering, and domain policy. See
 
 ## Consumer points of view
 
-- **CROP:** replace local metadata/frontmatter predicate parsing only after
-  parity is proven; CROP keeps graph cuts, corpus health, and view policy.
+- **MDCROP:** replace local metadata/frontmatter predicate parsing only after
+  parity is proven; MDCROP keeps graph cuts, corpus health, and view policy.
 - **MDPORT:** make document and section metadata easy to select without changing
   `mdport.v1` schema ownership.
 - **FLETCH:** slice manifests, cachelines, partitions, and quivers locally
   without implying fetch/cache execution; SLICE selects rows, FLETCH folds them
   into cacheline/quiver plans.
-- **MDLOOM:** filter generated reports and CROP-backed slices without moving
+- **MDLOOM:** filter generated reports and MDCROP-backed slices without moving
   Markdown rendering or source fidelity into SLICE.
 - **ICELINES:** keep domain-friendly hockey query commands and aliases while
   reusing low-level expression pieces where they help.
@@ -42,13 +42,13 @@ data requirements, ranking, rendering, and domain policy. See
 
 1. **Foundation** - create the Rust workspace, first selector grammar, CLI smoke
    path, docs, and repo operations scaffolding.
-2. **Adapters** - add optional adapters or examples for Mdport documents, CROP
+2. **Adapters** - add optional adapters or examples for Mdport documents, MDCROP
    units/views, and FLETCH manifests/partitions without pulling product policy
    or FLETCH cacheline folding into core.
    - Current local validation: `slice-mock-client` exercises Mdport-shaped,
-     CROP-like, FLETCH-like, and ICELINES-like rows while keeping FLETCH folding
+     MDCROP-like, FLETCH-like, and ICELINES-like rows while keeping FLETCH folding
      in the client layer.
-   - CROP migration mdloom: `slice-mock-client` now includes a frontmatter-query
+   - MDCROP migration mdloom: `slice-mock-client` now includes a frontmatter-query
      parity adapter for dynamic keys, array-like tag strings, and missing-field
      `ne` behavior.
 3. **Typed catalogs** - add field catalogs and numeric comparisons so adapters
@@ -64,7 +64,7 @@ data requirements, ranking, rendering, and domain policy. See
    ICELINES bio/stat filters while keeping hockey commands, stat catalogs,
    windows, career aggregation, similarity search, and ranking in ICELINES.
 8. **Adoption** - migrate first consumer filters from one-off parsing to SLICE.
-   The first candidate is CROP frontmatter-query parity; see
+   The first candidate is MDCROP frontmatter-query parity; see
    [`docs/plans/consumer-migration.md`](docs/plans/consumer-migration.md).
 
 ## Non-goals

@@ -2029,9 +2029,9 @@ mod tests {
     #[test]
     fn matches_in_and_not_in_clauses() {
         let expr =
-            parse("repo in ['CROP', 'MDLOOM'] and status not in ['blocked', 'stale']").unwrap();
+            parse("repo in ['MDCROP', 'MDLOOM'] and status not in ['blocked', 'stale']").unwrap();
 
-        assert!(expr.matches(&json!({"repo": "CROP", "status": "ready"})));
+        assert!(expr.matches(&json!({"repo": "MDCROP", "status": "ready"})));
         assert!(!expr.matches(&json!({"repo": "MDPORT", "status": "ready"})));
         assert!(!expr.matches(&json!({"repo": "MDLOOM", "status": "blocked"})));
     }
@@ -2060,19 +2060,19 @@ mod tests {
     #[test]
     fn matches_boolean_grouping_with_or_not_and_parentheses() {
         let expr =
-            parse("(repo in ['CROP', 'MDLOOM'] or tracker eq '[x]') and not status eq 'blocked'")
+            parse("(repo in ['MDCROP', 'MDLOOM'] or tracker eq '[x]') and not status eq 'blocked'")
                 .unwrap();
 
-        assert!(expr.matches(&json!({"repo": "CROP", "tracker": "[ ]", "status": "ready"})));
+        assert!(expr.matches(&json!({"repo": "MDCROP", "tracker": "[ ]", "status": "ready"})));
         assert!(expr.matches(&json!({"repo": "TRACKER", "tracker": "[x]", "status": "ready"})));
-        assert!(!expr.matches(&json!({"repo": "CROP", "tracker": "[ ]", "status": "blocked"})));
+        assert!(!expr.matches(&json!({"repo": "MDCROP", "tracker": "[ ]", "status": "blocked"})));
         assert!(!expr.matches(&json!({"repo": "MDPORT", "tracker": "[ ]", "status": "ready"})));
     }
 
     #[test]
     fn explain_parse_preserves_expression_tree() {
         let expr =
-            parse("(repo eq 'CROP' or tracker eq '[x]') and not status eq 'blocked'").unwrap();
+            parse("(repo eq 'MDCROP' or tracker eq '[x]') and not status eq 'blocked'").unwrap();
         let explain = expr.explain_parse();
 
         assert_eq!(explain.schema, "slice.parse_explain.v1");
@@ -2097,7 +2097,7 @@ mod tests {
             .insert("tracker", ValueType::String)
             .insert("status", ValueType::String);
         let compiled = compile(
-            "(repo eq 'CROP' or tracker eq '[x]') and not status eq 'blocked'",
+            "(repo eq 'MDCROP' or tracker eq '[x]') and not status eq 'blocked'",
             &catalog,
         )
         .unwrap();
@@ -2345,14 +2345,14 @@ mod tests {
             .insert("tags", ValueType::Array);
 
         let compiled = compile(
-            "repo in ['CROP', 'MDLOOM'] and priority between 1 and 5 and owner is not null and path starts_with 'docs/' and tags has any ['runtime']",
+            "repo in ['MDCROP', 'MDLOOM'] and priority between 1 and 5 and owner is not null and path starts_with 'docs/' and tags has any ['runtime']",
             &catalog,
         )
         .unwrap();
 
         assert_eq!(compiled.requirements().field_count, 5);
         assert!(compiled.matches(&json!({
-            "repo": "CROP",
+            "repo": "MDCROP",
             "priority": 2,
             "owner": "docs",
             "path": "docs/runtime.md",
@@ -2365,14 +2365,14 @@ mod tests {
         let mut catalog = FieldCatalog::new();
         catalog.insert("repo", ValueType::String);
 
-        let err = compile("repo in ['CROP', 1]", &catalog).unwrap_err();
+        let err = compile("repo in ['MDCROP', 1]", &catalog).unwrap_err();
 
         assert_eq!(
             err,
             SliceError::InvalidLiteral {
                 path: "repo".to_string(),
                 literal: Literal::List(vec![
-                    Literal::String("CROP".to_string()),
+                    Literal::String("MDCROP".to_string()),
                     Literal::Number(1.0)
                 ]),
                 value_type: ValueType::String,

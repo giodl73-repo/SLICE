@@ -699,13 +699,13 @@ mod tests {
             r#"
 | Consumer repo | Status | Runtime | Count |
 |---|---:|---|---:|
-| CROP | [x] | true | 2 |
+| MDCROP | [x] | true | 2 |
 | TRACKER | [ ] | false | n/a |
 "#,
         );
 
         assert_eq!(rows.len(), 2);
-        assert_eq!(rows[0]["consumer_repo"], "CROP");
+        assert_eq!(rows[0]["consumer_repo"], "MDCROP");
         assert_eq!(rows[0]["status"], "[x]");
         assert_eq!(rows[0]["runtime"], true);
         assert_eq!(rows[0]["count"], 2.0);
@@ -718,7 +718,7 @@ mod tests {
             r#"
 | Repo | Status | Runtime |
 |---|---|---|
-| CROP | [x] | true |
+| MDCROP | [x] | true |
 | TRACKER | [ ] | false |
 "#,
         );
@@ -729,7 +729,7 @@ mod tests {
             .map(|row| row["repo"].as_str().unwrap())
             .collect::<Vec<_>>();
 
-        assert_eq!(selected, ["CROP"]);
+        assert_eq!(selected, ["MDCROP"]);
     }
 
     #[test]
@@ -851,7 +851,7 @@ mod tests {
     fn emit_rows_sorts_offsets_limits_and_projects() {
         let mut rows = vec![
             serde_json::json!({"repo": "MDPORT", "priority": 2}),
-            serde_json::json!({"repo": "CROP", "priority": 1}),
+            serde_json::json!({"repo": "MDCROP", "priority": 1}),
             serde_json::json!({"repo": "MDLOOM", "priority": 3}),
         ];
         let path = split_field_path("priority");

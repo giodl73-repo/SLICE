@@ -2,7 +2,7 @@
   "fields": {
     "slice_layer": "string",
     "intended_use": "string",
-    "crop": "string",
+    "mdcrop": "string",
     "mdport": "string",
     "fletch": "string",
     "mdloom": "string",

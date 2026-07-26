@@ -6,22 +6,22 @@ Record the first real downstream SLICE adoption.
 
 ## Outcome
 
-CROP commit `02006c9` adopted `slice-core` for `crop.view.v1`
+MDCROP commit `02006c9` adopted `slice-core` for `mdcrop.view.v1`
 `frontmatter_query` parsing and evaluation.
 
 ## Boundary
 
-CROP derives its own field catalog, materializes Markdown frontmatter into row
+MDCROP derives its own field catalog, materializes Markdown frontmatter into row
 values, preserves missing-field `ne`, and keeps view recipes, graph selection,
-status policy, prefix caches, and rendering local to CROP.
+status policy, prefix caches, and rendering local to MDCROP.
 
 ## Validation
 
-Validated in CROP:
+Validated in MDCROP:
 
 - `cargo fmt --check`
 - `cargo test --workspace`
-- `cargo run -p crop-cli -- view --file examples\mdloom-fixture\mdloom-ready-view.json`
+- `cargo run -p mdcrop-cli -- view --file examples\mdloom-fixture\mdloom-ready-view.json`
 - `git diff --check`
 
 ## Status

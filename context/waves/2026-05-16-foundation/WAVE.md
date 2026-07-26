@@ -8,7 +8,7 @@ operations scaffolding.
 
 ## Thesis
 
-If FLETCH, CROP, MDPORT, MDLOOM, and domain CLIs share one expression kernel,
+If FLETCH, MDCROP, MDPORT, MDLOOM, and domain CLIs share one expression kernel,
 they can exchange filters and artifact slices without each repo inventing a
 new predicate language.
 
@@ -17,14 +17,14 @@ new predicate language.
 | Pulse | Title | Status | Outcome |
 |------:|-------|--------|---------|
 | 01 | Workspace foundation | done | Created repo skeleton, docs, skills, and first tested contract. |
-| 02 | Mdport/CROP/FLETCH examples | done | Added `slice-mock-client` to prove selectors over representative artifact shapes and downstream FLETCH folding. |
+| 02 | Mdport/MDCROP/FLETCH examples | done | Added `slice-mock-client` to prove selectors over representative artifact shapes and downstream FLETCH folding. |
 | 03 | Typed path catalogs | done | Added numeric comparisons and field catalogs so mock adapters validate selector paths and value types. |
 | 04 | Explain reports | done | Added machine-readable explain reports for compiled selectors and mock-client output. |
-| 05 | Consumer migration plan | done | Chose CROP frontmatter-query parity as the first real adoption surface and recorded downstream boundaries. |
+| 05 | Consumer migration plan | done | Chose MDCROP frontmatter-query parity as the first real adoption surface and recorded downstream boundaries. |
 | 06 | Diagnostic reports | done | Added machine-readable diagnostics with byte offsets and catalog/type context. |
 | 07 | Requirement reports | done | Added deduplicated typed field requirements for adapter materialization. |
-| 08 | CROP parity mock | done | Proved CROP frontmatter-query behavior in the mock client without moving CROP policy into core. |
-| 09 | First consumer adoption | done | CROP adopted `slice-core` for `frontmatter_query` while keeping view and graph policy local. |
+| 08 | MDCROP parity mock | done | Proved MDCROP frontmatter-query behavior in the mock client without moving MDCROP policy into core. |
+| 09 | First consumer adoption | done | MDCROP adopted `slice-core` for `frontmatter_query` while keeping view and graph policy local. |
 | 10 | MDPORT selector examples | done | MDPORT added dev-only SLICE tests for document and section metadata selectors. |
 | 11 | FLETCH selector examples | done | FLETCH added dev-only SLICE tests for cache-index and active-partition selectors. |
 | 12 | MDLOOM selector examples | done | MDLOOM added dev-only SLICE tests for artifact manifest row selectors. |

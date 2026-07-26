@@ -9,19 +9,19 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
 
 ## Migration order
 
-1. **CROP frontmatter query parity**
-   - Status: adopted in CROP commit `02006c9`; `frontmatter_query` now uses
+1. **MDCROP frontmatter query parity**
+   - Status: adopted in MDCROP commit `02006c9`; `frontmatter_query` now uses
      `slice-core` for parsing, catalog validation, requirements, and evaluation.
-   - Target: a narrow adapter for CROP metadata/frontmatter clauses that already
+   - Target: a narrow adapter for MDCROP metadata/frontmatter clauses that already
      look like row predicates.
    - SLICE owns: parsing, typed path validation, operator compatibility,
      evaluation over adapter-provided values, and explain reports.
-   - CROP keeps: view recipes, graph cuts, link health, corpus status policy,
+   - MDCROP keeps: view recipes, graph cuts, link health, corpus status policy,
      prefix caches, output formats, and compatibility flags.
-   - Gate: CROP's existing frontmatter-query fixtures pass through a SLICE
+   - Gate: MDCROP's existing frontmatter-query fixtures pass through a SLICE
      adapter with no behavior drift for supported clauses. This gate is met for
      the current `eq`, `ne`, `has`, and `and` surface.
-   - Local mdloom: `slice-mock-client` includes a CROP frontmatter parity adapter
+   - Local mdloom: `slice-mock-client` includes a MDCROP frontmatter parity adapter
      for top-level fields, array-like tag strings, and missing-field `ne`
      semantics.
 
@@ -50,11 +50,11 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      produced by FLETCH-side code. This gate is met by FLETCH's cache-index and
      active-partition runtime selector tests.
 
-4. **MDLOOM report and CROP-backed slice filters**
+4. **MDLOOM report and MDCROP-backed slice filters**
    - Status: runtime adoption in MDLOOM commit `c81ec4d`; `mdloom_lib::artifact`
      exposes a SLICE-backed helper for filtering prepared artifact manifest
      rows.
-   - Target: report-side filtering after MDLOOM has artifacts or CROP side-info
+   - Target: report-side filtering after MDLOOM has artifacts or MDCROP side-info
      rows in hand.
    - SLICE owns: low-level predicates over prepared rows.
    - MDLOOM keeps: Markdown/source fidelity, directives, compile graph,
@@ -106,7 +106,7 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
 - **Expression Kernel Keeper:** Pass if each migration starts with existing
   predicate-shaped clauses and avoids adding broad language features without
   fixture pressure.
-- **Adapter Boundary Keeper:** Pass if CROP, Mdport, FLETCH, MDLOOM, and ICELINES
+- **Adapter Boundary Keeper:** Pass if MDCROP, Mdport, FLETCH, MDLOOM, and ICELINES
   each keep their domain policy and expose only field catalogs plus row values to
   SLICE.
 - **Diagnostics Auditor:** Pass for current examples because `slice-core` now
@@ -114,7 +114,7 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
   those reports are surfaced to authors.
 - **Performance Engineer:** Pass for fixture-scale adapters; larger manifests
   should benchmark selection over prepared rows before replacing hot paths.
-- **Stakeholder POV:** CROP is the first useful migration because its
+- **Stakeholder POV:** MDCROP is the first useful migration because its
   frontmatter predicates are already the closest match to SLICE's current
   grammar. ICELINES should remain later because its high-value query layer is
   domain semantics, not low-level row filtering.

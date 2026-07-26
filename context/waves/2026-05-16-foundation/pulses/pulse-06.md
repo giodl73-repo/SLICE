@@ -3,7 +3,7 @@
 ## Goal
 
 Make parser and catalog-validation failures actionable for downstream adapters
-before the first real CROP migration.
+before the first real MDCROP migration.
 
 ## Changes
 
@@ -12,7 +12,7 @@ before the first real CROP migration.
   literals after parsing.
 - Include structured error kind, message, expected value, token/path, operator,
   value type, literal, and allowed operators when available.
-- Keep diagnostics product-neutral: CROP, Mdport, FLETCH, MDLOOM, and ICELINES
+- Keep diagnostics product-neutral: MDCROP, Mdport, FLETCH, MDLOOM, and ICELINES
   decide how to render the report.
 
 ## Validation

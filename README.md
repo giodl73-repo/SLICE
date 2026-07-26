@@ -1,7 +1,7 @@
 # SLICE
 
 SLICE is a low-layer Rust query and expression language for selecting typed
-artifacts across the portfolio. It gives FLETCH, CROP, MDPORT, MDLOOM, and
+artifacts across the portfolio. It gives FLETCH, MDCROP, MDPORT, MDLOOM, and
 domain CLIs one reusable predicate kernel instead of many incompatible filter
 grammars.
 
@@ -20,7 +20,7 @@ The first contract is intentionally small:
 - numeric comparisons: `field gt 1`, `field ge 1`, `field lt 1`,
   `field le 1`;
 - ranges: `field between 1 and 10`;
-- membership: `field in ['CROP', 'MDLOOM']`, `field not in ['blocked']`;
+- membership: `field in ['MDCROP', 'MDLOOM']`, `field not in ['blocked']`;
 - null queries: `field is null`, `field is not null`;
 - containment: `field has 'value'` for arrays, strings, and object keys;
 - array/string quantifiers: `field has any ['runtime', 'selector']`,
@@ -123,14 +123,14 @@ The first adoption path is documented in
 ## Mock client
 
 `slice-mock-client` is the local downstream validation harness. It runs the
-current selector contract over Mdport-shaped metadata, CROP-like evidence units,
+current selector contract over Mdport-shaped metadata, MDCROP-like evidence units,
 FLETCH-like active partitions, and ICELINES-like player rows. For FLETCH, SLICE
 selects rows and the mock client performs the downstream fold into quiver
 candidates, preserving the layer boundary.
 
-The mock client also includes a CROP frontmatter-query parity adapter. It derives
+The mock client also includes a MDCROP frontmatter-query parity adapter. It derives
 a field catalog from the query, materializes array-like frontmatter strings for
-`has`, and preserves CROP's current behavior that a missing field satisfies
+`has`, and preserves MDCROP's current behavior that a missing field satisfies
 `ne`.
 
 For ICELINES-style storage, the mock client creates an in-memory SQLite database,
@@ -178,7 +178,7 @@ kind, message, byte offset, and catalog/type details when available.
 ## Non-goals
 
 - SLICE does not fetch data, build corpora, or cache artifacts.
-- SLICE does not own CROP graph cuts, MDPORT schema design, FLETCH manifests, or
+- SLICE does not own MDCROP graph cuts, MDPORT schema design, FLETCH manifests, or
   product-specific query surfaces.
 - `slice-core` does not execute SQL or infer joins; the optional SQLite CLI layer
   can run read-only inspection and per-source smoke queries, while consumers own

@@ -20,5 +20,5 @@ treated as ready.
 
 ## What NOT to do
 
-Do not reject concrete CROP, MDPORT, FLETCH, MDLOOM, or ICELINES examples just
+Do not reject concrete MDCROP, MDPORT, FLETCH, MDLOOM, or ICELINES examples just
 because they are concrete. Reject them only when they become shared-core policy.

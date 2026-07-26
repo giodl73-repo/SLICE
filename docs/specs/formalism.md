@@ -29,10 +29,10 @@ SLICE owns four product-neutral concepts.
 
 | Concept | Meaning | Product-owned counterpart |
 |---|---|---|
-| `Expression` | Boolean tree of selector clauses. | ICELINES `QueryPlan`, CROP view predicate, FLETCH manifest slice. |
+| `Expression` | Boolean tree of selector clauses. | ICELINES `QueryPlan`, MDCROP view predicate, FLETCH manifest slice. |
 | `Path` | Stable field path into an adapter-provided value. | `metadata.tags`, `player.bio.age`, `manifest.entries[].verified`. |
 | `Predicate` | Typed operator plus typed literal or set. | Numeric threshold, string equality, membership, range, pattern. |
-| `EvalContext` | Read-only evaluation settings and provider hooks. | ICELINES season/today/provider, CROP view root, FLETCH manifest scope. |
+| `EvalContext` | Read-only evaluation settings and provider hooks. | ICELINES season/today/provider, MDCROP view root, FLETCH manifest scope. |
 
 The invariant: `slice-core` can parse, type-check, explain, and evaluate these
 concepts without knowing hockey, graph cuts, Mdport schema policy, cache
@@ -148,7 +148,7 @@ blocks:
 - one typed predicate model for equality, membership, ranges, and patterns;
 - one diagnostics shape for parse/type/evaluation failures;
 - one explain shape agents can read;
-- one compiled selector that can run over JSON, Mdport sections, CROP units,
+- one compiled selector that can run over JSON, Mdport sections, MDCROP units,
   FLETCH manifests, and ICELINES adapter rows;
 - one place to benchmark selector performance.
 
@@ -195,11 +195,11 @@ This makes SLICE useful without making it know everything.
 
 ## Layer usefulness
 
-SLICE is more immediately useful for CROP, MDPORT, and FLETCH than for ICELINES.
+SLICE is more immediately useful for MDCROP, MDPORT, and FLETCH than for ICELINES.
 
 | Consumer | Near-term usefulness | Why |
 |---|---|---|
-| CROP | High | It already has simple metadata/frontmatter predicates that can move to a shared parser after parity tests. |
+| MDCROP | High | It already has simple metadata/frontmatter predicates that can move to a shared parser after parity tests. |
 | MDPORT | High | Metadata selection is schema-shaped and product-neutral. |
 | FLETCH | High | Manifest/cacheline/partition filters are structured rows; SLICE can replace narrow `slice_*` filters while FLETCH owns folding. |
 | MDLOOM | Medium | Useful later for generated report filters, but rendering/source fidelity are separate. |
@@ -216,7 +216,7 @@ shared subset:
 
 1. Define a path catalog API in SLICE.
 2. Add range and set predicates to `slice-core`.
-3. Prove CROP/Mdport/FLETCH fixtures.
+3. Prove MDCROP/Mdport/FLETCH fixtures.
 4. Add a FLETCH fixture that selects active partitions, then lets FLETCH fold the
    selected rows into cacheline/quiver candidates.
 5. Add an ICELINES adapter experiment for simple bio/stat filters only.
@@ -251,9 +251,9 @@ deduplicated typed field paths that an adapter must materialize before
 evaluation. This is not a fetch plan: consumers still own how those fields are
 loaded, cached, folded, or rendered.
 
-Pulse 08 uses those reports in the mock client to model CROP frontmatter-query
+Pulse 08 uses those reports in the mock client to model MDCROP frontmatter-query
 parity. The adapter derives a catalog from query paths, materializes missing
-fields as `null` for CROP-compatible `ne`, and converts array-like tag strings
+fields as `null` for MDCROP-compatible `ne`, and converts array-like tag strings
 before evaluation. The behavior belongs to the adapter, not `slice-core`.
 
 Pulse 22 adds CLI catalog loading. `slice eval --catalog` accepts a JSON field
