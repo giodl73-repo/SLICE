@@ -120,6 +120,10 @@ detailed model is in
 The first adoption path is documented in
 [`docs/plans/consumer-migration.md`](docs/plans/consumer-migration.md).
 
+The protected pre-1.0 contracts, versioning rules, and mandatory FLETCH
+downstream rehearsal are defined in
+[`docs/compatibility.md`](docs/compatibility.md).
+
 ## Mock client
 
 `slice-mock-client` is the local downstream validation harness. It runs the
