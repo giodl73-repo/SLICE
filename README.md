@@ -1,7 +1,7 @@
 # SLICE
 
 SLICE is a low-layer Rust query and expression language for selecting typed
-artifacts across the portfolio. It gives FLETCH, MDCROP, MDPORT, MDLOOM, and
+artifacts across the portfolio. It gives FLETCH, MDCROP, MDPORT, PROOF, and
 domain CLIs one reusable predicate kernel instead of many incompatible filter
 grammars.
 
@@ -20,7 +20,7 @@ The first contract is intentionally small:
 - numeric comparisons: `field gt 1`, `field ge 1`, `field lt 1`,
   `field le 1`;
 - ranges: `field between 1 and 10`;
-- membership: `field in ['MDCROP', 'MDLOOM']`, `field not in ['blocked']`;
+- membership: `field in ['MDCROP', 'PROOF']`, `field not in ['blocked']`;
 - null queries: `field is null`, `field is not null`;
 - containment: `field has 'value'` for arrays, strings, and object keys;
 - array/string quantifiers: `field has any ['runtime', 'selector']`,

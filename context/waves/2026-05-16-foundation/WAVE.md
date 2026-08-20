@@ -8,7 +8,7 @@ operations scaffolding.
 
 ## Thesis
 
-If FLETCH, MDCROP, MDPORT, MDLOOM, and domain CLIs share one expression kernel,
+If FLETCH, MDCROP, MDPORT, PROOF, and domain CLIs share one expression kernel,
 they can exchange filters and artifact slices without each repo inventing a
 new predicate language.
 
@@ -27,10 +27,10 @@ new predicate language.
 | 09 | First consumer adoption | done | MDCROP adopted `slice-core` for `frontmatter_query` while keeping view and graph policy local. |
 | 10 | MDPORT selector examples | done | MDPORT added dev-only SLICE tests for document and section metadata selectors. |
 | 11 | FLETCH selector examples | done | FLETCH added dev-only SLICE tests for cache-index and active-partition selectors. |
-| 12 | MDLOOM selector examples | done | MDLOOM added dev-only SLICE tests for artifact manifest row selectors. |
+| 12 | PROOF selector examples | done | PROOF added dev-only SLICE tests for artifact manifest row selectors. |
 | 13 | ICELINES selector examples | done | ICELINES added dev-only SLICE tests for simple player bio/stat row predicates while keeping hockey query semantics local. |
 | 14 | MDPORT optional runtime selectors | done | MDPORT added a feature-gated SLICE selector helper for document and section metadata rows. |
-| 15 | MDLOOM artifact runtime selectors | done | MDLOOM added a SLICE-backed artifact manifest selector helper over prepared compile report rows. |
+| 15 | PROOF artifact runtime selectors | done | PROOF added a SLICE-backed artifact manifest selector helper over prepared compile report rows. |
 | 16 | FLETCH row runtime selectors | done | FLETCH added SLICE-backed helpers for cache-index and active-partition rows while keeping fetch/cache and quiver policy local. |
 | 17 | ICELINES prepared-row runtime selectors | done | ICELINES added SLICE-backed helpers for prepared player bio/stat rows while keeping hockey query semantics local. |
 | 18 | Markdown table selectors | done | `slice eval` can select Markdown table rows as JSONL, giving TRACKER and wave docs a shared planning selector path. |

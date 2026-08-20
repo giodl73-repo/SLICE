@@ -1,23 +1,23 @@
-# Pulse 12: MDLOOM selector examples
+# Pulse 12: PROOF selector examples
 
 ## Goal
 
-Record MDLOOM's SLICE selector examples for prepared artifact/report rows.
+Record PROOF's SLICE selector examples for prepared artifact/report rows.
 
 ## Outcome
 
-MDLOOM commit `6737d8c` added dev-only `slice-core` tests that select
-`.mdloom/artifacts.json`-shaped rows by target, status, and diagnostic fields.
+PROOF commit `6737d8c` added dev-only `slice-core` tests that select
+`.proof/artifacts.json`-shaped rows by target, status, and diagnostic fields.
 
 ## Boundary
 
-SLICE only selects prepared rows. MDLOOM keeps source fidelity, directives,
+SLICE only selects prepared rows. PROOF keeps source fidelity, directives,
 compile graph, artifact manifests, diagnostics, Markdown/HTML/Mdport rendering,
 and MDCROP wrapper behavior.
 
 ## Validation
 
-Validated in MDLOOM:
+Validated in PROOF:
 
 - `cargo fmt --check`
 - `cargo test --test slice_artifact_selector`

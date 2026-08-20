@@ -43,5 +43,5 @@ real downstream tools.
 | `stakeholders/mdcrop-view-author.md` | MDCROP View Author | Reusable metadata/frontmatter predicates without losing MDCROP policy |
 | `stakeholders/mdport-pack-consumer.md` | Mdport Pack Consumer | Select document/section metadata without changing Mdport schema |
 | `stakeholders/fletch-manifest-user.md` | FLETCH Manifest User | Slice manifests/cachelines/partitions with stable predicates |
-| `stakeholders/mdloom-report-author.md` | MDLOOM Report Author | Filter generated reports without moving rendering into SLICE |
+| `stakeholders/proof-report-author.md` | PROOF Report Author | Filter generated reports without moving rendering into SLICE |
 | `stakeholders/icelines-query-user.md` | ICELINES Query User | Keep domain-friendly query UX while reusing low-level expressions |

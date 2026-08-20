@@ -3,13 +3,13 @@
 ## Thesis
 
 Portfolio repos already need reusable selectors: MDCROP view filters, Mdport
-metadata predicates, FLETCH manifest slices, MDLOOM report filters, and ICELINES
+metadata predicates, FLETCH manifest slices, PROOF report filters, and ICELINES
 query surfaces. SLICE extracts the shared expression kernel so each repo can
 reuse one low-layer contract while keeping product semantics local.
 
 ## Dependency placement
 
-SLICE is a shared dependency below FLETCH, MDCROP, MDPORT, MDLOOM, and domain CLIs.
+SLICE is a shared dependency below FLETCH, MDCROP, MDPORT, PROOF, and domain CLIs.
 It should depend only on stable parsing/evaluation crates and common data types.
 Consumers adapt their own records into SLICE values.
 
@@ -33,7 +33,7 @@ data requirements, ranking, rendering, and domain policy. See
 - **FLETCH:** slice manifests, cachelines, partitions, and quivers locally
   without implying fetch/cache execution; SLICE selects rows, FLETCH folds them
   into cacheline/quiver plans.
-- **MDLOOM:** filter generated reports and MDCROP-backed slices without moving
+- **PROOF:** filter generated reports and MDCROP-backed slices without moving
   Markdown rendering or source fidelity into SLICE.
 - **ICELINES:** keep domain-friendly hockey query commands and aliases while
   reusing low-level expression pieces where they help.
@@ -48,7 +48,7 @@ data requirements, ranking, rendering, and domain policy. See
    - Current local validation: `slice-mock-client` exercises Mdport-shaped,
      MDCROP-like, FLETCH-like, and ICELINES-like rows while keeping FLETCH folding
      in the client layer.
-   - MDCROP migration mdloom: `slice-mock-client` now includes a frontmatter-query
+   - MDCROP migration proof: `slice-mock-client` now includes a frontmatter-query
      parity adapter for dynamic keys, array-like tag strings, and missing-field
      `ne` behavior.
 3. **Typed catalogs** - add field catalogs and numeric comparisons so adapters

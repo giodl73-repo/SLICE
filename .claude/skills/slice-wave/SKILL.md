@@ -18,5 +18,5 @@ Use this skill to create or update SLICE waves.
 - Identify affected crates and consumer repos.
 - Break the wave into small pulses.
 - Include validation expectations for every pulse.
-- Record non-goals that keep MDCROP, FLETCH, MDPORT, MDLOOM, and domain semantics
+- Record non-goals that keep MDCROP, FLETCH, MDPORT, PROOF, and domain semantics
   out of `slice-core`.

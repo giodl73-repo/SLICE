@@ -27,13 +27,13 @@ does not become the owner of every downstream plan.
 | MDCROP | Best first runtime migration candidate because its current frontmatter query is simple and parity-testable. |
 | MDPORT | Best schema/fixture candidate because metadata selection is product-neutral. |
 | FLETCH | Best planning candidate because SLICE can select rows, then FLETCH can fold selected rows into cacheline/quiver plans. |
-| MDLOOM | Later consumer for report filters; avoid coupling to rendering. |
+| PROOF | Later consumer for report filters; avoid coupling to rendering. |
 | ICELINES | Best architecture reference now; later adapter experiment for simple bio/stat filters only. |
 
 ## Layer decision
 
 SLICE should not know about every system. SLICE should know how to represent,
-type-check, evaluate, and explain selector intent. MDCROP, MDPORT, FLETCH, MDLOOM,
+type-check, evaluate, and explain selector intent. MDCROP, MDPORT, FLETCH, PROOF,
 and ICELINES should know how selector intent maps to their artifacts and
 execution plans.
 

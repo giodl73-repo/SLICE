@@ -34,7 +34,7 @@ making runtime dependencies broad.
 | MDCROP View Author | PASS WITH RISK. MDCROP is the strongest first adopter because it already has `frontmatter_query`. | First adoption should be parity-only before expanding syntax. |
 | Mdport Pack Consumer | PASS. Mdport metadata selectors are a clean example as long as SLICE does not own `mdport.v1`. | Add document and section metadata fixtures in Wave 02. |
 | FLETCH Manifest User | PASS. Manifest/cacheline slicing fits SLICE's low-layer role. | Start with JSON fixtures before linking FLETCH runtime crates. |
-| MDLOOM Report Author | PASS. Report filtering is a plausible later use; rendering stays out of SLICE. | Keep MDLOOM adoption later than MDCROP/Mdport/FLETCH examples. |
+| PROOF Report Author | PASS. Report filtering is a plausible later use; rendering stays out of SLICE. | Keep PROOF adoption later than MDCROP/Mdport/FLETCH examples. |
 | ICELINES Query User | PASS. There is an explicit ICELINES POV: keep `icelines query` domain-friendly and reuse only low-level expression pieces. | Do not replace ICELINES command UX with raw SLICE expressions; use ICELINES as an ergonomics reference. |
 
 ## ICELINES POV

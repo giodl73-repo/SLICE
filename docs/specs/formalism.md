@@ -202,7 +202,7 @@ SLICE is more immediately useful for MDCROP, MDPORT, and FLETCH than for ICELINE
 | MDCROP | High | It already has simple metadata/frontmatter predicates that can move to a shared parser after parity tests. |
 | MDPORT | High | Metadata selection is schema-shaped and product-neutral. |
 | FLETCH | High | Manifest/cacheline/partition filters are structured rows; SLICE can replace narrow `slice_*` filters while FLETCH owns folding. |
-| MDLOOM | Medium | Useful later for generated report filters, but rendering/source fidelity are separate. |
+| PROOF | Medium | Useful later for generated report filters, but rendering/source fidelity are separate. |
 | ICELINES | Medium later, high as design reference now | Its query engine is rich and domain-specific; use it to shape the IR, but do not migrate it first. |
 
 The layering answer: SLICE should not know about everything. It should know how

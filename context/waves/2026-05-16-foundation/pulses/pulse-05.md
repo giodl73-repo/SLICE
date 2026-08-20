@@ -17,7 +17,7 @@ MDCROP graph, corpus-health, status, prefix-cache, or view policy into
 1. MDCROP frontmatter query parity.
 2. Mdport metadata selector examples.
 3. FLETCH manifest and partition selectors.
-4. MDLOOM report and MDCROP-backed slice filters.
+4. PROOF report and MDCROP-backed slice filters.
 5. ICELINES simple bio/stat adapter.
 
 ## Validation

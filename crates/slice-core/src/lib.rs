@@ -2029,11 +2029,11 @@ mod tests {
     #[test]
     fn matches_in_and_not_in_clauses() {
         let expr =
-            parse("repo in ['MDCROP', 'MDLOOM'] and status not in ['blocked', 'stale']").unwrap();
+            parse("repo in ['MDCROP', 'PROOF'] and status not in ['blocked', 'stale']").unwrap();
 
         assert!(expr.matches(&json!({"repo": "MDCROP", "status": "ready"})));
         assert!(!expr.matches(&json!({"repo": "MDPORT", "status": "ready"})));
-        assert!(!expr.matches(&json!({"repo": "MDLOOM", "status": "blocked"})));
+        assert!(!expr.matches(&json!({"repo": "PROOF", "status": "blocked"})));
     }
 
     #[test]
@@ -2060,7 +2060,7 @@ mod tests {
     #[test]
     fn matches_boolean_grouping_with_or_not_and_parentheses() {
         let expr =
-            parse("(repo in ['MDCROP', 'MDLOOM'] or tracker eq '[x]') and not status eq 'blocked'")
+            parse("(repo in ['MDCROP', 'PROOF'] or tracker eq '[x]') and not status eq 'blocked'")
                 .unwrap();
 
         assert!(expr.matches(&json!({"repo": "MDCROP", "tracker": "[ ]", "status": "ready"})));
@@ -2345,7 +2345,7 @@ mod tests {
             .insert("tags", ValueType::Array);
 
         let compiled = compile(
-            "repo in ['MDCROP', 'MDLOOM'] and priority between 1 and 5 and owner is not null and path starts_with 'docs/' and tags has any ['runtime']",
+            "repo in ['MDCROP', 'PROOF'] and priority between 1 and 5 and owner is not null and path starts_with 'docs/' and tags has any ['runtime']",
             &catalog,
         )
         .unwrap();

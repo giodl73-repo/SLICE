@@ -21,7 +21,7 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
    - Gate: MDCROP's existing frontmatter-query fixtures pass through a SLICE
      adapter with no behavior drift for supported clauses. This gate is met for
      the current `eq`, `ne`, `has`, and `and` surface.
-   - Local mdloom: `slice-mock-client` includes a MDCROP frontmatter parity adapter
+   - Local proof: `slice-mock-client` includes a MDCROP frontmatter parity adapter
      for top-level fields, array-like tag strings, and missing-field `ne`
      semantics.
 
@@ -50,17 +50,17 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
      produced by FLETCH-side code. This gate is met by FLETCH's cache-index and
      active-partition runtime selector tests.
 
-4. **MDLOOM report and MDCROP-backed slice filters**
-   - Status: runtime adoption in MDLOOM commit `c81ec4d`; `mdloom_lib::artifact`
+4. **PROOF report and MDCROP-backed slice filters**
+   - Status: runtime adoption in PROOF commit `c81ec4d`; `proof_lib::artifact`
      exposes a SLICE-backed helper for filtering prepared artifact manifest
      rows.
-   - Target: report-side filtering after MDLOOM has artifacts or MDCROP side-info
+   - Target: report-side filtering after PROOF has artifacts or MDCROP side-info
      rows in hand.
    - SLICE owns: low-level predicates over prepared rows.
-   - MDLOOM keeps: Markdown/source fidelity, directives, compile graph,
+   - PROOF keeps: Markdown/source fidelity, directives, compile graph,
      rendering, and artifact manifests.
    - Gate: report output remains byte-stable except for intentionally selected
-     rows. This gate is met because selection happens after MDLOOM has already
+     rows. This gate is met because selection happens after PROOF has already
      compiled and produced manifest-shaped rows.
 
 5. **ICELINES simple bio/stat adapter**
@@ -106,7 +106,7 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
 - **Expression Kernel Keeper:** Pass if each migration starts with existing
   predicate-shaped clauses and avoids adding broad language features without
   fixture pressure.
-- **Adapter Boundary Keeper:** Pass if MDCROP, Mdport, FLETCH, MDLOOM, and ICELINES
+- **Adapter Boundary Keeper:** Pass if MDCROP, Mdport, FLETCH, PROOF, and ICELINES
   each keep their domain policy and expose only field catalogs plus row values to
   SLICE.
 - **Diagnostics Auditor:** Pass for current examples because `slice-core` now

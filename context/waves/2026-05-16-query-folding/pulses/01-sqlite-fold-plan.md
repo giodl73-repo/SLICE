@@ -39,7 +39,7 @@ multi-source `and` partitioning and residual local expressions.
 - [x] SQLite predicate lowering with parameters.
 - [x] Residual expression tree for unsupported or unsafe subtrees.
 - [x] `slice plan --backend sqlite` CLI output.
-- [x] Mock SQLite join mdloom with folded predicates from `players` and `stats`.
+- [x] Mock SQLite join proof with folded predicates from `players` and `stats`.
 - [x] README/formalism/TRACKER updates.
 
 ## Evidence

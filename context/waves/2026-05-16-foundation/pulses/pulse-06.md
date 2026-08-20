@@ -12,7 +12,7 @@ before the first real MDCROP migration.
   literals after parsing.
 - Include structured error kind, message, expected value, token/path, operator,
   value type, literal, and allowed operators when available.
-- Keep diagnostics product-neutral: MDCROP, Mdport, FLETCH, MDLOOM, and ICELINES
+- Keep diagnostics product-neutral: MDCROP, Mdport, FLETCH, PROOF, and ICELINES
   decide how to render the report.
 
 ## Validation

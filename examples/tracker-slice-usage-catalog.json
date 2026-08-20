@@ -5,7 +5,7 @@
     "mdcrop": "string",
     "mdport": "string",
     "fletch": "string",
-    "mdloom": "string",
+    "proof": "string",
     "icelines": "string",
     "tracker": "string",
     "notes": "string"

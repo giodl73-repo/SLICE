@@ -852,7 +852,7 @@ mod tests {
         let mut rows = vec![
             serde_json::json!({"repo": "MDPORT", "priority": 2}),
             serde_json::json!({"repo": "MDCROP", "priority": 1}),
-            serde_json::json!({"repo": "MDLOOM", "priority": 3}),
+            serde_json::json!({"repo": "PROOF", "priority": 3}),
         ];
         let path = split_field_path("priority");
         rows.sort_by(|left, right| compare_path_values(left, right, &path));
