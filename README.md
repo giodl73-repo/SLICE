@@ -46,37 +46,37 @@ slice eval --expr "metadata.tags has 'context' and metadata.status eq 'ready'" -
 Set and null operators keep repo/status queries compact:
 
 ```bash
-slice eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+slice eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker
 ```
 
 Boolean grouping supports OData-style row predicates:
 
 ```bash
-slice eval --markdown-table --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+slice eval --markdown-table --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker
 ```
 
 Markdown planning tables can be selected directly and emitted as JSONL rows:
 
 ```bash
-slice eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
+slice eval --markdown-table --expr "status eq '[~]'" --input ../../../dependency-systems/slice-usage.md
 ```
 
 Use `--fields` to project matching rows for scripts and planning reports:
 
 ```bash
-slice eval --markdown-table --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker,notes
+slice eval --markdown-table --expr "tracker eq '[x]'" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker,notes
 ```
 
 Use `--catalog` to type-check CLI selectors before evaluating rows:
 
 ```bash
-slice eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
+slice eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker eq '[x]'" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker
 ```
 
 Use result-shaping flags for OData-style planning queries:
 
 ```bash
-slice eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
+slice eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../../../dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
 ```
 
 Use `slice explain` to inspect parse trees, typed fields, requirements, and
@@ -196,13 +196,13 @@ kind, message, byte offset, and catalog/type details when available.
 cargo fmt --check
 cargo test
 cargo run -p slice-cli -- eval --expr "metadata.tags has 'context'" --input examples/mdport.json
-cargo run -p slice-cli -- eval --markdown-table --expr "status eq '[~]'" --input ../TRACKER/dependency-systems/slice-usage.md
-cargo run -p slice-cli -- eval --markdown-table --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
-cargo run -p slice-cli -- eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
-cargo run -p slice-cli -- eval --markdown-table --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
-cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker eq '[x]'" --input ../TRACKER/dependency-systems/slice-usage.md --fields slice_layer,tracker
-cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
-cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../TRACKER/dependency-systems/slice-usage.md --count
+cargo run -p slice-cli -- eval --markdown-table --expr "status eq '[~]'" --input ../../../dependency-systems/slice-usage.md
+cargo run -p slice-cli -- eval --markdown-table --expr "tracker eq '[x]'" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --expr "slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] and tracker is not null" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker eq '[x]'" --input ../../../dependency-systems/slice-usage.md --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../../../dependency-systems/slice-usage.md --sort-by slice_layer --limit 2 --fields slice_layer,tracker
+cargo run -p slice-cli -- eval --markdown-table --catalog examples/tracker-slice-usage-catalog.json --expr "tracker is not null" --input ../../../dependency-systems/slice-usage.md --count
 cargo run -p slice-cli -- explain --catalog examples/tracker-slice-usage-catalog.json --expr "(slice_layer in ['Predicate AST/parser','CLI smoke/evaluation'] or tracker eq '[x]') and not notes contains 'deprecated'"
 cargo run -p slice-cli -- plan --backend sqlite --catalog examples/icelines-sqlite-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"
 cargo run -p slice-cli -- plan --backend odata --catalog examples/icelines-odata-catalog.json --expr "player.position eq 'C' and stats.ppg ge 0.8 and stats.tags has 'playoffs'"

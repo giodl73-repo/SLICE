@@ -14,7 +14,7 @@ does not become the owner of every downstream plan.
 |---|---|---|
 | Expression Kernel Keeper | PASS. The formalism names a shape-by-construction IR and keeps ranking, fetching, cache folding, graph cuts, and domain windows out of core. | Add range/set/pattern predicates only with tests and compatibility notes. |
 | Adapter Boundary Keeper | PASS. FLETCH cacheline folding is explicitly above SLICE; ICELINES hockey semantics stay in ICELINES. | Put product field catalogs in adapters or consumers, not `slice-core`. |
-| Diagnostics Auditor | PASS WITH FOLLOW-UP. The formalism includes explain output and diagnostics as first-class passes. | Next implementation wave should add machine-readable parse/type diagnostics. |
+| Diagnostics Auditor | PASS. The formalism includes explain output and diagnostics as first-class passes, and later pulses added `slice.diagnostic.v1`, parse-only explain, typed diagnostics, and requirements reports. | Preserve those report schemas under the compatibility policy. |
 | Performance Engineer | PASS WITH FOLLOW-UP. Reusable compiled selectors and FLETCH row scans are the right performance shape. | Add sized JSON/JSONL/FLETCH partition fixtures before claims about speed. |
 | Scope Keeper | PASS. The doc says SLICE should not know everything. | Keep that sentence as a gate for future adoption PRs. |
 | Contract Checker | PASS. The formalism is consistent with README and product plan. | Add tests as each target IR node becomes real code. |

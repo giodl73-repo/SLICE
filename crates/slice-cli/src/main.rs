@@ -869,7 +869,7 @@ mod tests {
     #[test]
     fn compare_path_values_puts_missing_values_last() {
         let path = split_field_path("priority");
-        let mut rows = vec![
+        let mut rows = [
             serde_json::json!({"repo": "missing"}),
             serde_json::json!({"repo": "present", "priority": 1}),
         ];
