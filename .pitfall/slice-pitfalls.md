@@ -98,7 +98,7 @@ portfolio path and validate at least one Markdown-table command during adoption.
 
 ## SLICE-PF-06: Performance Claims Outrun Sized Fixtures
 
-**Status:** OPEN
+**Status:** MITIGATED
 
 **Pattern:** SLICE is described as fast enough for large artifact scans or hot
 consumer paths without sized JSON, JSONL, FLETCH partition, or SQLite fixtures
@@ -111,7 +111,15 @@ FLETCH adoption, and backend fold planning.
 invisible until a real manifest or table becomes large.
 
 **Structural solution:** Add sized fixtures and bounded-memory/performance
-checks before making speed claims or replacing hot consumer paths.
+checks before making speed claims or replacing hot consumer paths. SLICE now
+uses `docs/performance-claim-boundary.md` and
+`tests/check-performance-claim-boundary.ps1` to block large-scan, FLETCH
+partition, SQLite table, production-speed, and hot-path replacement claims until
+fixture size, row width, command, selector, catalog posture, memory posture,
+downstream responsibilities, measured result or smoke threshold, and review
+dispositions are visible.
 
 **Evidence:** `docs/reviews/formalism-role-review.md` and
-`docs/reviews/slice-plan-role-review.md` performance follow-ups.
+`docs/reviews/slice-plan-role-review.md` performance follow-ups,
+`docs/performance-claim-boundary.md`, `.roles/ROLE.md`, and
+`tests/check-performance-claim-boundary.ps1`.

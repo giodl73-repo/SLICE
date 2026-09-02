@@ -17,7 +17,7 @@ making runtime dependencies broad.
 | Expression Kernel Keeper | PASS. The first grammar is intentionally small: paths, `eq`, `ne`, `has`, `contains`, and `and`. | Do not add broader language features until at least two consumers need them. |
 | Adapter Boundary Keeper | PASS. The plan keeps product schemas in adapters/downstream repos and keeps `slice-core` product-neutral. | Keep Mdport/MDCROP/FLETCH examples as fixtures or optional adapters, not core policy. |
 | Diagnostics Auditor | NEEDS FOLLOW-UP. Parser errors have offsets, but the plan does not yet require invalid-example docs or machine-readable explain output. | Wave 03 should add invalid examples and explain output acceptance criteria. |
-| Performance Engineer | NEEDS FOLLOW-UP. The plan names local artifact scans, but no benchmark fixtures or streaming targets exist yet. | Wave 02 should include JSON/JSONL fixture sizes and a bounded-memory CLI check. |
+| Performance Engineer | NEEDS FOLLOW-UP. The plan names local artifact scans, but benchmark fixtures and streaming targets remain bounded by the performance claim boundary. | Wave 02 should include JSON/JSONL fixture sizes and a bounded-memory CLI check before speed or hot-path claims. |
 
 ## Editorial review
 

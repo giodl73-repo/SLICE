@@ -67,6 +67,17 @@ data requirements, ranking, rendering, and domain policy. See
    The first candidate is MDCROP frontmatter-query parity; see
    [`docs/plans/consumer-migration.md`](docs/plans/consumer-migration.md).
 
+## Performance claim boundary
+
+The performance claim boundary is part of the adoption gate.
+
+SLICE may claim selector semantics, compatibility, diagnostics, and fixture-scale
+adoption from the current evidence. Any hot-path replacement, large artifact
+scan, FLETCH partition, SQLite table, or production-speed claim must first pass
+[`docs/performance-claim-boundary.md`](docs/performance-claim-boundary.md) and
+name fixture size, row width, command, selector, catalog posture, memory
+posture, downstream responsibilities, and review dispositions.
+
 ## Non-goals
 
 - No product-owned ranking, graph selection, source fetching, cache policy, or

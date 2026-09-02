@@ -77,3 +77,23 @@ plus documented FLETCH tests for affected changes.
 
 **Evidence:** `docs/compatibility.md` and
 `docs/plans/consumer-migration.md`.
+
+## SLICE-I-06: Performance Claims Require Sized Evidence
+
+**Status:** VERIFIED
+
+**Invariant:** SLICE cannot make large-scan, FLETCH partition, SQLite table,
+production-speed, or hot-path replacement claims unless the release record names
+fixture size, row width, command, selector, catalog posture, memory posture,
+downstream responsibilities, measured result or smoke threshold, and review
+dispositions.
+
+**Why it matters:** Tiny fixtures can prove selector semantics while hiding
+memory or latency debt that only appears in real manifests, tables, or
+consumer hot paths.
+
+**Test:** `pwsh -NoProfile -File tests/check-performance-claim-boundary.ps1`.
+
+**Evidence:** `SLICE-PF-06`, `docs/performance-claim-boundary.md`,
+`docs/compatibility.md`, `.roles/ROLE.md`, and
+`tests/check-performance-claim-boundary.ps1`.

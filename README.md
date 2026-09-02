@@ -124,6 +124,14 @@ The protected pre-1.0 contracts, versioning rules, and mandatory FLETCH
 downstream rehearsal are defined in
 [`docs/compatibility.md`](docs/compatibility.md).
 
+Performance wording is also gated. The
+[`performance claim boundary`](docs/performance-claim-boundary.md) makes
+`SLICE-PF-06` explicit: SLICE must not be described as fast enough for large
+artifact scans, FLETCH partitions, SQLite tables, or hot consumer paths unless
+the claim names fixture size, row width, command, selector, catalog posture,
+memory posture, downstream responsibilities, and review dispositions. The
+current guard is a 1,000-row JSONL smoke check, not a benchmark.
+
 ## Mock client
 
 `slice-mock-client` is the local downstream validation harness. It runs the

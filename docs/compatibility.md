@@ -69,3 +69,14 @@ failures expose grammar, typing, evaluation, or adapter-boundary drift.
 
 SLICE foundation changes are not ready until the affected foundation tests and
 the FLETCH rehearsal pass.
+
+## Performance Claim Boundary
+
+The performance claim boundary is part of the compatibility gate.
+
+`SLICE-PF-06` keeps speed, large-scan, hot-path, FLETCH partition, SQLite table,
+and production-readiness claims out of the protected contract until sized
+evidence exists. Use [`performance-claim-boundary.md`](performance-claim-boundary.md)
+before replacing consumer hot paths or publishing performance language. The
+current `tests/check-performance-claim-boundary.ps1` guard proves a 1,000-row
+JSONL smoke path only; it is not benchmark evidence.

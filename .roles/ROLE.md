@@ -45,3 +45,11 @@ real downstream tools.
 | `stakeholders/fletch-manifest-user.md` | FLETCH Manifest User | Slice manifests/cachelines/partitions with stable predicates |
 | `stakeholders/proof-report-author.md` | PROOF Report Author | Filter generated reports without moving rendering into SLICE |
 | `stakeholders/icelines-query-user.md` | ICELINES Query User | Keep domain-friendly query UX while reusing low-level expressions |
+
+---
+
+## PITFALL gates
+
+| Pitfall | Gate | Required roles |
+|---|---|---|
+| `SLICE-PF-06` | Performance claim boundary. Blocks large artifact scan, FLETCH partition, SQLite table, production-speed, and hot-path replacement claims until fixture size, row width, command, selector, catalog posture, memory posture, downstream responsibilities, measured result or smoke threshold, and review dispositions are visible. | Performance Engineer; Adapter Boundary Keeper; Contract Checker; Validation Checker |

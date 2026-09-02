@@ -113,7 +113,8 @@ policy, rendering, ranking, cache folding, and user-facing command ownership.
   exposes diagnostic and requirements reports; downstream adapters still own how
   those reports are surfaced to authors.
 - **Performance Engineer:** Pass for fixture-scale adapters; larger manifests
-  should benchmark selection over prepared rows before replacing hot paths.
+  should use the performance claim boundary and benchmark selection over
+  prepared rows before replacing hot paths.
 - **Stakeholder POV:** MDCROP is the first useful migration because its
   frontmatter predicates are already the closest match to SLICE's current
   grammar. ICELINES should remain later because its high-value query layer is
