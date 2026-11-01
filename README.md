@@ -1,5 +1,11 @@
 # SLICE
 
+[Query playground](https://giodl73-repo.github.io/SLICE/) — try JSON records,
+selectors and optional typed catalogs in the browser using the existing Rust
+kernel compiled to WebAssembly. Inspect explain/requirements/diagnostics and
+download matching records. Inputs stay in the tab; no server query or account.
+[Build and validation](BUILD.md) · [Browser wave](context/waves/2026-10-31-wasm-playground/WAVE.md).
+
 SLICE is a low-layer Rust query and expression language for selecting typed
 artifacts across the portfolio. It gives FLETCH, MDCROP, MDPORT, PROOF, and
 domain CLIs one reusable predicate kernel instead of many incompatible filter
@@ -214,3 +220,7 @@ cargo run -p slice-mock-client
 ## License
 
 [MIT](LICENSE) - © 2026 Gio Della-Libera.
+
+The first-party code is MIT. Third-party dependency and Rust-library notices
+retain their original licenses; see `tools/licenses/rust/README.md` and the
+generated site's notices. They are outside the root grant's ownership scope.

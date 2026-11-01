@@ -1,0 +1,76 @@
+{
+  "schema": "slice.playground.local-qualification.v1",
+  "scope": "local qualification before clean hosted release; preview bundle size/pins are not final deployment custody",
+  "source_entry": "78e488c2b0b8299f8703d45a45f445055992fd7d",
+  "core_unchanged": true,
+  "native_tests": 45,
+  "adapter_test_functions": 6,
+  "native_canonical_cases": 13,
+  "browser_cases": 28,
+  "browser_skipped": 0,
+  "browser_unexpected": 0,
+  "browser_flaky": 0,
+  "retries_configured": 0,
+  "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "bindings": "wasm-bindgen 0.2.127",
+  "host": "Windows-11-10.0.26310-SP0",
+  "preview_bytes": 1341554,
+  "preview_files": 31,
+  "preview_wasm": {
+    "bytes": 287495,
+    "sha256": "5e77cb83f3aa8380dc85f6d10856a77275190c2323821a8454a17151b83fc11d"
+  },
+  "preview_dirty": true,
+  "typed_error_offsets_preserved": true,
+  "source_index_pins": {
+    "crates/slice-core/src/lib.rs": {
+      "sha256": "9c4762ef37fa1b6b79049d9e84704089fd508721e7e2982021f7513aff43e0a8",
+      "bytes": 75953
+    },
+    "crates/slice-web/src/lib.rs": {
+      "sha256": "0a853fd1212fa429db151a7753388402b7b7cc903af42b6e3d551a18e1ecc7a5",
+      "bytes": 12652
+    },
+    "web/app.js": {
+      "sha256": "dcd3c943763316d32fb50ed64fed390936ffa5ab8c774b93daf983b8cda0c38a",
+      "bytes": 8635
+    },
+    "web/worker.js": {
+      "sha256": "b9322be8161883f29294db2087b8c097a1963c148aea59181a49f0d8d8b65bf0",
+      "bytes": 582
+    },
+    "tests/browser/playground.spec.js": {
+      "sha256": "a1d942a8050017731cc177fbc922c106b475b6be1757893fbdee73e2bab354ba",
+      "bytes": 15976
+    },
+    "tools/build-pages.py": {
+      "sha256": "1b51c793f4ab64575984fe7098736eb483c9a16db04b7c62431d98c9c21ed3c6",
+      "bytes": 7430
+    }
+  },
+  "observations": [
+    {
+      "browser": "149.0.7827.55",
+      "viewport": {
+        "width": 1365,
+        "height": 900
+      },
+      "readiness_ms": 99,
+      "fixture_rows": 4,
+      "scope": "one environment-specific startup including worker/network/UI; not Rust CPU benchmark"
+    },
+    {
+      "browser": "149.0.7827.55",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "readiness_ms": 140,
+      "fixture_rows": 4,
+      "scope": "one environment-specific startup including worker/network/UI; not Rust CPU benchmark"
+    }
+  ],
+  "visual_review": "entry/inputs/results inspected at desktop and 390px viewport; readable, no horizontal page overflow; mobile vertical scrolling",
+  "review": "docs/reviews/wasm-playground-role-review.md",
+  "publication_evidence": "Pages Actions, public provenance, and TRACKER release record"
+}

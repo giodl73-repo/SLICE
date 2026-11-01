@@ -1,0 +1,5 @@
+{
+  "records_json": "[\n  {\"id\": \"guide\", \"title\": \"Field guide\", \"status\": \"ready\", \"score\": 8, \"tags\": [\"public\", \"reference\"]},\n  {\"id\": \"draft\", \"title\": \"Working notes\", \"status\": \"draft\", \"score\": 4, \"tags\": [\"local\"]},\n  {\"id\": \"index\", \"title\": \"Reference index\", \"status\": \"ready\", \"score\": 6, \"tags\": [\"public\"]},\n  {\"id\": \"empty\", \"title\": \"Unrated record\", \"status\": \"held\", \"tags\": []}\n]",
+  "expression": "status eq 'ready' and score ge 6",
+  "catalog_json": "{\n  \"fields\": {\n    \"id\": \"string\",\n    \"title\": \"string\",\n    \"status\": \"string\",\n    \"score\": \"number\",\n    \"tags\": \"array\"\n  }\n}"
+}

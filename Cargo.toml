@@ -4,6 +4,7 @@ members = [
     "crates/slice-sqlite",
     "crates/slice-cli",
     "crates/slice-mock-client",
+    "crates/slice-web",
 ]
 resolver = "2"
 
