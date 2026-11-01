@@ -69,6 +69,13 @@ data requirements, ranking, rendering, and domain policy. See
 
 ## Non-goals
 
+The [bounded query playground](context/waves/2026-10-31-wasm-playground/WAVE.md)
+adds a browser/native adapter over the existing kernel. UI and worker code stay
+outside `slice-core`; no consumer dependency or grammar changes are introduced.
+Local UTF-8 JSON object arrays, optional typed catalogs and matching-row exports
+are the reader surface. SQLite, native scans and domain policy remain native/
+consumer responsibilities. This does not close production-scale performance gates.
+
 - No product-owned ranking, graph selection, source fetching, cache policy, or
   document rendering in `slice-core`.
 - No private implementation copy; SLICE is clean-room OSS infrastructure.

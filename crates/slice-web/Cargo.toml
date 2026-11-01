@@ -1,0 +1,24 @@
+[package]
+name = "slice-web"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bounded JSON playground adapter over the unchanged SLICE kernel"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "slice-playground"
+path = "src/main.rs"
+
+[features]
+wasm = ["dep:wasm-bindgen"]
+
+[dependencies]
+slice-core = { path = "../slice-core" }
+serde.workspace = true
+serde_json.workspace = true
+wasm-bindgen = { version = "=0.2.127", optional = true }

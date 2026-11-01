@@ -4,7 +4,9 @@ Work is organized into small waves and pulses.
 
 ## Active wave
 
-- `2026-05-16-foundation`
+- `2026-10-31-wasm-playground`
+
+Foundation pulses remain recorded under `2026-05-16-foundation`.
 
 ## Protocol
 
